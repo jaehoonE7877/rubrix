@@ -31,3 +31,10 @@ pnpm-debug.log*
 *.bak
 .cache/
 coverage/
+
+# Claude Code — local-only state
+.claude/settings.local.json
+.claude/worktrees/
+
+# Rubrix — generated task state
+.rubrix/
