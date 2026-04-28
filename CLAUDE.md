@@ -8,7 +8,7 @@
 
 ## 현재 상태 (v1.0.0)
 
-`.claude-plugin/`, `skills/`, `agents/`, `hooks/`, `cli/`, `scripts/`, `examples/`, `registry/` 모든 표면이 구현 완료. `claude plugin validate .` 통과, `cli/tests/` 87 vitest pass, iteration-4 with_skill 96.9% (+43.1pp delta).
+`.claude-plugin/`, `skills/`, `agents/`, `hooks/`, `cli/`, `scripts/`, `examples/`, `registry/` 모든 표면이 구현 완료. `claude plugin validate .` 통과, `cli/tests/` 87 vitest pass.
 
 새 기능을 더하기 전에 현재 구현된 표면을 깨지 않는지부터 확인한다. v1.1+ 기능은 `docs/extensible-plan.md`의 "Planned" 섹션 참고.
 
