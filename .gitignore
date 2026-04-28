@@ -43,8 +43,9 @@ coverage/
 iteration-*/
 
 # Plugin root — not part of Claude Code plugin structure
-registry/
-bin/
+# Anchored to repo root so cli/bin/ is not affected
+/registry/
+/bin/
 
 # Codex companion job state
 .codex/
