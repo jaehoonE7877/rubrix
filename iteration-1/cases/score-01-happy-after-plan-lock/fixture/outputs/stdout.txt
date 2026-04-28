@@ -1,3 +1,0 @@
-validation passed
-all assertions ran
-exit 0
