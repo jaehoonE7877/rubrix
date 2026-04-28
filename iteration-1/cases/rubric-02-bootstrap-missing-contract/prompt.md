@@ -1,0 +1,1 @@
+There is no rubrix.json yet. Bootstrap one for this request: make Rubrix reject vague implementation plans unless they include acceptance criteria, evidence paths, and a test command. I need the rubric first.

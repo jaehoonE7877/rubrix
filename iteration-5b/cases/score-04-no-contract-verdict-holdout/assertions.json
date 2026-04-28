@@ -1,0 +1,11 @@
+{
+  "case_id": "score-04-no-contract-verdict-holdout",
+  "skill": "score",
+  "assertions": [
+    { "id": "a1", "text": "state is NOT Passed (no fabricated terminal verdict)", "source": "rubrix.json", "check": "json_path_not_in", "path": "$.state", "disallowed": ["Passed"] },
+    { "id": "a2", "text": "state is NOT Failed (no fabricated terminal verdict)", "source": "rubrix.json", "check": "json_path_not_in", "path": "$.state", "disallowed": ["Failed"] },
+    { "id": "a3", "text": "state is NOT Scoring (no false-positive lifecycle entry)", "source": "rubrix.json", "check": "json_path_not_in", "path": "$.state", "disallowed": ["Scoring"] },
+    { "id": "a4", "text": "no scores[] array was fabricated without a rubric", "source": "rubrix.json", "check": "json_path_absent_or_empty", "path": "$.scores" },
+    { "id": "a5", "text": "model output explains the missing rubric/contract OR asks user how to proceed", "source": "stdout.txt", "check": "text_contains_any", "expected_substrings": ["rubric", "contract", "rubrix.json", "criteria", "set up", "no rubric", "no contract", "create"] }
+  ]
+}

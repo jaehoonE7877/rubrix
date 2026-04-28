@@ -1,0 +1,20 @@
+{
+  "name": "rubrix",
+  "version": "1.0.0",
+  "description": "Evaluation-contract-first harness for Claude Code agents. rubrix.json drives the lifecycle; hooks, CLI, skills, and subagents enforce it.",
+  "author": {
+    "name": "Jaehoon Seo"
+  },
+  "homepage": "https://github.com/jaehoonE7877/rubrix",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "harness",
+    "evaluation",
+    "rubric",
+    "plugin"
+  ],
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "hooks": "./hooks/hooks.json"
+}

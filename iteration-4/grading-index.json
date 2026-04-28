@@ -1,0 +1,189 @@
+{
+  "total": 26,
+  "okConditions": 14,
+  "failConditions": 12,
+  "runs": [
+    {
+      "caseId": "matrix-01-happy-after-rubric-lock",
+      "condition": "baseline",
+      "passed": 4,
+      "failed": 1,
+      "total": 5
+    },
+    {
+      "caseId": "matrix-01-happy-after-rubric-lock",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "matrix-02-before-rubric-lock-negative",
+      "condition": "baseline",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "matrix-02-before-rubric-lock-negative",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "matrix-03-natural-language-coverage-map",
+      "condition": "baseline",
+      "passed": 2,
+      "failed": 3,
+      "total": 5
+    },
+    {
+      "caseId": "matrix-03-natural-language-coverage-map",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "plan-01-happy-after-matrix-lock",
+      "condition": "baseline",
+      "passed": 3,
+      "failed": 2,
+      "total": 5
+    },
+    {
+      "caseId": "plan-01-happy-after-matrix-lock",
+      "condition": "with_skill",
+      "passed": 4,
+      "failed": 1,
+      "total": 5
+    },
+    {
+      "caseId": "plan-02-from-failed-negative",
+      "condition": "baseline",
+      "passed": 3,
+      "failed": 2,
+      "total": 5
+    },
+    {
+      "caseId": "plan-02-from-failed-negative",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "plan-03-natural-language-action-plan",
+      "condition": "baseline",
+      "passed": 1,
+      "failed": 4,
+      "total": 5
+    },
+    {
+      "caseId": "plan-03-natural-language-action-plan",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "rubric-01-happy-criteria",
+      "condition": "baseline",
+      "passed": 2,
+      "failed": 3,
+      "total": 5
+    },
+    {
+      "caseId": "rubric-01-happy-criteria",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "rubric-02-bootstrap-missing-contract",
+      "condition": "baseline",
+      "passed": 2,
+      "failed": 3,
+      "total": 5
+    },
+    {
+      "caseId": "rubric-02-bootstrap-missing-contract",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "rubric-03-existing-contract-natural-language",
+      "condition": "baseline",
+      "passed": 1,
+      "failed": 4,
+      "total": 5
+    },
+    {
+      "caseId": "rubric-03-existing-contract-natural-language",
+      "condition": "with_skill",
+      "passed": 4,
+      "failed": 1,
+      "total": 5
+    },
+    {
+      "caseId": "score-01-happy-after-plan-lock",
+      "condition": "baseline",
+      "passed": 2,
+      "failed": 3,
+      "total": 5
+    },
+    {
+      "caseId": "score-01-happy-after-plan-lock",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "score-02-locks-plan-false-negative",
+      "condition": "baseline",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "score-02-locks-plan-false-negative",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "score-03-natural-language-judge-output",
+      "condition": "baseline",
+      "passed": 0,
+      "failed": 5,
+      "total": 5
+    },
+    {
+      "caseId": "score-03-natural-language-judge-output",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "score-04-no-contract-verdict-holdout",
+      "condition": "baseline",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "caseId": "score-04-no-contract-verdict-holdout",
+      "condition": "with_skill",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    }
+  ]
+}

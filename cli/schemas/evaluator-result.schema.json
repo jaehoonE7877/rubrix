@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubrix.dev/schemas/evaluator-result.schema.json",
+  "title": "Evaluator Result",
+  "description": "Output contract for an evaluator subagent (e.g., output-judge, plan-critic). One result per criterion per evaluator invocation.",
+  "type": "object",
+  "required": ["evaluator", "criterion", "verdict", "score", "confidence"],
+  "additionalProperties": false,
+  "properties": {
+    "evaluator": {
+      "type": "string",
+      "description": "agents/<name>.md id that produced this result.",
+      "minLength": 1
+    },
+    "criterion": {
+      "type": "string",
+      "description": "rubric.criteria[].id this result scores."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "fail", "needs_more_evidence"]
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Self-reported confidence; aggregator may down-weight low-confidence results."
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Short justification (one paragraph)."
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "ref"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["file", "command", "url", "snippet", "agent_output"] },
+          "ref": { "type": "string" },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp at which the evaluator produced this result."
+    }
+  }
+}

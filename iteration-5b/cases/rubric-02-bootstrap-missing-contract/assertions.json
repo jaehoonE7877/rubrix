@@ -1,0 +1,11 @@
+{
+  "case_id": "rubric-02-bootstrap-missing-contract",
+  "skill": "rubric",
+  "assertions": [
+    { "id": "a1", "text": "rubrix.json is created even though no contract existed initially", "source": "rubrix.json", "check": "file_exists" },
+    { "id": "a2", "text": "intent.summary preserves the user's request keywords", "source": "rubrix.json", "check": "json_path_contains", "path": "$.intent.summary", "expected_substrings_any": ["vague", "acceptance criteria", "evidence", "test command"] },
+    { "id": "a3", "text": "locks.rubric is true (rubric was created and locked)", "source": "rubrix.json", "check": "json_path_equals", "path": "$.locks.rubric", "expected": true },
+    { "id": "a4", "text": "locks.matrix and locks.plan remain false", "source": "rubrix.json", "check": "json_paths_equal", "paths": ["$.locks.matrix", "$.locks.plan"], "expected": false },
+    { "id": "a5", "text": "stderr does not contain a missing-file failure", "source": "stderr.txt", "check": "text_not_contains", "expected_substrings": ["ENOENT", "No such file", "missing rubrix.json"] }
+  ]
+}

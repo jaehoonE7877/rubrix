@@ -1,0 +1,11 @@
+{
+  "case_id": "matrix-01-happy-after-rubric-lock",
+  "skill": "matrix",
+  "assertions": [
+    { "id": "a1", "text": "state is MatrixLocked", "source": "rubrix.json", "check": "json_path_equals", "path": "$.state", "expected": "MatrixLocked" },
+    { "id": "a2", "text": "locks.matrix is true", "source": "rubrix.json", "check": "json_path_equals", "path": "$.locks.matrix", "expected": true },
+    { "id": "a3", "text": "locks.rubric remains true", "source": "rubrix.json", "check": "json_path_equals", "path": "$.locks.rubric", "expected": true },
+    { "id": "a4", "text": "matrix.rows has exactly one row per rubric criterion", "source": "rubrix.json", "check": "json_array_lengths_equal", "paths": ["$.matrix.rows", "$.rubric.criteria"] },
+    { "id": "a5", "text": "each matrix row has criterion and evidence_required", "source": "rubrix.json", "check": "json_array_items_have_keys", "path": "$.matrix.rows", "keys": ["criterion", "evidence_required"] }
+  ]
+}

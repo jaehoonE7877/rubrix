@@ -1,0 +1,7 @@
+$ node cli/bin/rubrix.js validate examples/self-eval/rubrix.json
+validation passed
+$ node cli/bin/rubrix.js gate examples/self-eval/rubrix.json
+all assertions ran
+$ node cli/bin/rubrix.js report examples/self-eval/rubrix.json
+report generated → reports/self-eval-2026-04-28.md
+exit 0

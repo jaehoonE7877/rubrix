@@ -1,0 +1,12 @@
+{
+  "version": "0.1",
+  "intent": {
+    "summary": "Improve Rubrix planning output quality"
+  },
+  "state": "IntentDrafted",
+  "locks": {
+    "rubric": false,
+    "matrix": false,
+    "plan": false
+  }
+}

@@ -2,6 +2,8 @@
 
 > Claude Code Harness First
 
+> **Status (v1.0.0):** All target surface in this document is delivered. `claude plugin validate .` passes, 79 vitest tests pass, iter-4 benchmark hit with_skill 96.9% / +43.1pp delta. v1.1+ items (multi-evaluator aggregation, run history, `/improve` / `/replay` / `/learn`, domain packs) remain planned. See [`PLUGIN-README.md`](../PLUGIN-README.md) for the production-ready surface and [`docs/reviews/v1.0.0-codex-review.md`](reviews/v1.0.0-codex-review.md) for the v1.0 release review log.
+
 ## 목적과 기본 방향
 
 기존 문서는 Rubrix를 문서화 전용 runtime으로 설명하고 있었습니다. 그러나 Rubrix의 목표는 Claude Code 환경에서 hoyeon 스타일의 에이전트 harness를 구현하는 것입니다.

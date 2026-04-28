@@ -1,0 +1,16 @@
+{
+  "version": "0.1",
+  "intent": {
+    "summary": "Review Rubrix skill outputs"
+  },
+  "state": "RubricLocked",
+  "locks": { "rubric": true, "matrix": false, "plan": false },
+  "rubric": {
+    "threshold": 0.8,
+    "criteria": [
+      { "id": "c1", "description": "Output includes objective assertions", "weight": 0.34, "floor": 0.7 },
+      { "id": "c2", "description": "Output includes concrete file paths", "weight": 0.33, "floor": 0.7 },
+      { "id": "c3", "description": "Output avoids vague quality claims", "weight": 0.33, "floor": 0.7 }
+    ]
+  }
+}

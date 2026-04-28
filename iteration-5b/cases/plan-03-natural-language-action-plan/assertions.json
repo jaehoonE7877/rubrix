@@ -1,0 +1,11 @@
+{
+  "case_id": "plan-03-natural-language-action-plan",
+  "skill": "plan",
+  "assertions": [
+    { "id": "a1", "text": "state is PlanLocked", "source": "rubrix.json", "check": "json_path_equals", "path": "$.state", "expected": "PlanLocked" },
+    { "id": "a2", "text": "plan.steps contains at least 3 entries", "source": "rubrix.json", "check": "json_array_length_at_least", "path": "$.plan.steps", "min": 3 },
+    { "id": "a3", "text": "each plan step has id and action", "source": "rubrix.json", "check": "json_array_items_have_keys", "path": "$.plan.steps", "keys": ["id", "action"] },
+    { "id": "a4", "text": "at least one step contains dependency or ordering language", "source": "rubrix.json", "check": "json_array_any_text_contains", "path": "$.plan.steps", "field": "action", "expected_substrings": ["after", "before", "depends", "dependency", "order"] },
+    { "id": "a5", "text": "scores remain absent before scoring", "source": "rubrix.json", "check": "json_path_absent_or_empty", "path": "$.scores" }
+  ]
+}

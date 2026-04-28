@@ -1,0 +1,29 @@
+{
+  "version": "0.1",
+  "intent": {
+    "summary": "Evaluate Rubrix skill changes"
+  },
+  "state": "PlanLocked",
+  "locks": { "rubric": true, "matrix": true, "plan": true },
+  "rubric": {
+    "threshold": 0.8,
+    "criteria": [
+      { "id": "c1", "description": "Output includes objective assertions", "weight": 0.34, "floor": 0.7 },
+      { "id": "c2", "description": "Output includes exact commands", "weight": 0.33, "floor": 0.7 },
+      { "id": "c3", "description": "Output handles validation failure reporting cleanly", "weight": 0.33, "floor": 0.7 }
+    ]
+  },
+  "matrix": {
+    "rows": [
+      { "id": "m1", "criterion": "c1", "evidence_required": "outputs/assertions.json" },
+      { "id": "m2", "criterion": "c2", "evidence_required": "outputs/stdout.txt" },
+      { "id": "m3", "criterion": "c3", "evidence_required": "outputs/stderr.txt" }
+    ]
+  },
+  "plan": {
+    "steps": [
+      { "id": "p1", "action": "Generate assertions", "covers": ["m1"] },
+      { "id": "p2", "action": "Run validation", "covers": ["m2", "m3"] }
+    ]
+  }
+}

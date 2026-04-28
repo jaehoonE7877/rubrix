@@ -1,0 +1,697 @@
+{
+  "metadata": {
+    "iteration": "iteration-1",
+    "skill_name": "rubrix-skills",
+    "generated_at": "2026-04-28T03:46:55.502Z",
+    "cases": [
+      "matrix-01-happy-after-rubric-lock",
+      "matrix-02-before-rubric-lock-negative",
+      "matrix-03-natural-language-coverage-map",
+      "plan-01-happy-after-matrix-lock",
+      "plan-02-from-failed-negative",
+      "plan-03-natural-language-action-plan",
+      "rubric-01-happy-criteria",
+      "rubric-02-bootstrap-missing-contract",
+      "rubric-03-existing-contract-natural-language",
+      "score-01-happy-after-plan-lock",
+      "score-02-locks-plan-false-negative",
+      "score-03-natural-language-judge-output"
+    ],
+    "conditions": [
+      "with_skill",
+      "baseline"
+    ],
+    "model_requested": "claude-sonnet-4-6"
+  },
+  "summary": {
+    "with_skill": {
+      "runs": 12,
+      "passed": 47,
+      "total": 60,
+      "pass_rate": 78.3,
+      "total_duration_ms": 645852,
+      "avg_duration_ms": 53821,
+      "total_cost_usd": 1.70629125,
+      "avg_cost_usd": 0.1421909375,
+      "total_input_tokens": 121,
+      "total_output_tokens": 31349
+    },
+    "baseline": {
+      "runs": 12,
+      "passed": 32,
+      "total": 60,
+      "pass_rate": 53.3,
+      "total_duration_ms": 386018,
+      "avg_duration_ms": 32168,
+      "total_cost_usd": 1.0355219999999998,
+      "avg_cost_usd": 0.08629349999999998,
+      "total_input_tokens": 57,
+      "total_output_tokens": 19582
+    },
+    "delta_pass_rate": 25,
+    "delta_avg_duration_ms": 21653,
+    "delta_avg_cost_usd": 0.05589743750000002
+  },
+  "by_skill": [
+    {
+      "skill": "rubric",
+      "with_skill": {
+        "runs": 3,
+        "passed": 12,
+        "total": 15,
+        "pass_rate": 80,
+        "total_duration_ms": 187679,
+        "avg_duration_ms": 62560,
+        "total_cost_usd": 0.47606099999999996,
+        "avg_cost_usd": 0.158687,
+        "total_input_tokens": 34,
+        "total_output_tokens": 9154
+      },
+      "baseline": {
+        "runs": 3,
+        "passed": 8,
+        "total": 15,
+        "pass_rate": 53.3,
+        "total_duration_ms": 82325,
+        "avg_duration_ms": 27442,
+        "total_cost_usd": 0.23713785,
+        "avg_cost_usd": 0.07904595,
+        "total_input_tokens": 13,
+        "total_output_tokens": 3641
+      }
+    },
+    {
+      "skill": "matrix",
+      "with_skill": {
+        "runs": 3,
+        "passed": 14,
+        "total": 15,
+        "pass_rate": 93.3,
+        "total_duration_ms": 110893,
+        "avg_duration_ms": 36964,
+        "total_cost_usd": 0.30660329999999997,
+        "avg_cost_usd": 0.10220109999999999,
+        "total_input_tokens": 26,
+        "total_output_tokens": 5042
+      },
+      "baseline": {
+        "runs": 3,
+        "passed": 9,
+        "total": 15,
+        "pass_rate": 60,
+        "total_duration_ms": 95624,
+        "avg_duration_ms": 31875,
+        "total_cost_usd": 0.21963915,
+        "avg_cost_usd": 0.07321305,
+        "total_input_tokens": 12,
+        "total_output_tokens": 4087
+      }
+    },
+    {
+      "skill": "plan",
+      "with_skill": {
+        "runs": 3,
+        "passed": 12,
+        "total": 15,
+        "pass_rate": 80,
+        "total_duration_ms": 203585,
+        "avg_duration_ms": 67862,
+        "total_cost_usd": 0.49479435,
+        "avg_cost_usd": 0.16493145,
+        "total_input_tokens": 37,
+        "total_output_tokens": 10113
+      },
+      "baseline": {
+        "runs": 3,
+        "passed": 7,
+        "total": 15,
+        "pass_rate": 46.7,
+        "total_duration_ms": 116596,
+        "avg_duration_ms": 38865,
+        "total_cost_usd": 0.29092319999999994,
+        "avg_cost_usd": 0.09697439999999997,
+        "total_input_tokens": 15,
+        "total_output_tokens": 6579
+      }
+    },
+    {
+      "skill": "score",
+      "with_skill": {
+        "runs": 3,
+        "passed": 9,
+        "total": 15,
+        "pass_rate": 60,
+        "total_duration_ms": 143695,
+        "avg_duration_ms": 47898,
+        "total_cost_usd": 0.4288326,
+        "avg_cost_usd": 0.1429442,
+        "total_input_tokens": 24,
+        "total_output_tokens": 7040
+      },
+      "baseline": {
+        "runs": 3,
+        "passed": 8,
+        "total": 15,
+        "pass_rate": 53.3,
+        "total_duration_ms": 91473,
+        "avg_duration_ms": 30491,
+        "total_cost_usd": 0.28782179999999996,
+        "avg_cost_usd": 0.09594059999999999,
+        "total_input_tokens": 17,
+        "total_output_tokens": 5275
+      }
+    }
+  ],
+  "by_case": [
+    {
+      "case_id": "matrix-01-happy-after-rubric-lock",
+      "with_skill": {
+        "passed": 5,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 3,
+        "total": 5
+      },
+      "delta": 2
+    },
+    {
+      "case_id": "matrix-02-before-rubric-lock-negative",
+      "with_skill": {
+        "passed": 5,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 5,
+        "total": 5
+      },
+      "delta": 0
+    },
+    {
+      "case_id": "matrix-03-natural-language-coverage-map",
+      "with_skill": {
+        "passed": 4,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 1,
+        "total": 5
+      },
+      "delta": 3
+    },
+    {
+      "case_id": "plan-01-happy-after-matrix-lock",
+      "with_skill": {
+        "passed": 4,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 3,
+        "total": 5
+      },
+      "delta": 1
+    },
+    {
+      "case_id": "plan-02-from-failed-negative",
+      "with_skill": {
+        "passed": 3,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 3,
+        "total": 5
+      },
+      "delta": 0
+    },
+    {
+      "case_id": "plan-03-natural-language-action-plan",
+      "with_skill": {
+        "passed": 5,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 1,
+        "total": 5
+      },
+      "delta": 4
+    },
+    {
+      "case_id": "rubric-01-happy-criteria",
+      "with_skill": {
+        "passed": 4,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 3,
+        "total": 5
+      },
+      "delta": 1
+    },
+    {
+      "case_id": "rubric-02-bootstrap-missing-contract",
+      "with_skill": {
+        "passed": 5,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 2,
+        "total": 5
+      },
+      "delta": 3
+    },
+    {
+      "case_id": "rubric-03-existing-contract-natural-language",
+      "with_skill": {
+        "passed": 3,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 3,
+        "total": 5
+      },
+      "delta": 0
+    },
+    {
+      "case_id": "score-01-happy-after-plan-lock",
+      "with_skill": {
+        "passed": 4,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 2,
+        "total": 5
+      },
+      "delta": 2
+    },
+    {
+      "case_id": "score-02-locks-plan-false-negative",
+      "with_skill": {
+        "passed": 5,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 5,
+        "total": 5
+      },
+      "delta": 0
+    },
+    {
+      "case_id": "score-03-natural-language-judge-output",
+      "with_skill": {
+        "passed": 0,
+        "total": 5
+      },
+      "baseline": {
+        "passed": 1,
+        "total": 5
+      },
+      "delta": -1
+    }
+  ],
+  "runs": [
+    {
+      "case_id": "matrix-01-happy-after-rubric-lock",
+      "skill": "matrix",
+      "condition": "with_skill",
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 100,
+      "duration_ms": 46331,
+      "cost_usd": 0.1266813,
+      "input_tokens": 11,
+      "output_tokens": 1992,
+      "num_turns": 9,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "matrix-01-happy-after-rubric-lock",
+      "skill": "matrix",
+      "condition": "baseline",
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 60,
+      "duration_ms": 40083,
+      "cost_usd": 0.0884388,
+      "input_tokens": 4,
+      "output_tokens": 2156,
+      "num_turns": 3,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "matrix-02-before-rubric-lock-negative",
+      "skill": "matrix",
+      "condition": "with_skill",
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 100,
+      "duration_ms": 24885,
+      "cost_usd": 0.0667212,
+      "input_tokens": 6,
+      "output_tokens": 942,
+      "num_turns": 4,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "matrix-02-before-rubric-lock-negative",
+      "skill": "matrix",
+      "condition": "baseline",
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 100,
+      "duration_ms": 23356,
+      "cost_usd": 0.048003000000000004,
+      "input_tokens": 3,
+      "output_tokens": 411,
+      "num_turns": 2,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "matrix-03-natural-language-coverage-map",
+      "skill": "matrix",
+      "condition": "with_skill",
+      "passed": 4,
+      "total": 5,
+      "pass_rate": 80,
+      "duration_ms": 39677,
+      "cost_usd": 0.11320079999999999,
+      "input_tokens": 9,
+      "output_tokens": 2108,
+      "num_turns": 7,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "matrix-03-natural-language-coverage-map",
+      "skill": "matrix",
+      "condition": "baseline",
+      "passed": 1,
+      "total": 5,
+      "pass_rate": 20,
+      "duration_ms": 32185,
+      "cost_usd": 0.08319734999999999,
+      "input_tokens": 5,
+      "output_tokens": 1520,
+      "num_turns": 4,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "plan-01-happy-after-matrix-lock",
+      "skill": "plan",
+      "condition": "with_skill",
+      "passed": 4,
+      "total": 5,
+      "pass_rate": 80,
+      "duration_ms": 50829,
+      "cost_usd": 0.13602809999999999,
+      "input_tokens": 11,
+      "output_tokens": 2415,
+      "num_turns": 10,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "plan-01-happy-after-matrix-lock",
+      "skill": "plan",
+      "condition": "baseline",
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 60,
+      "duration_ms": 33750,
+      "cost_usd": 0.08849879999999999,
+      "input_tokens": 5,
+      "output_tokens": 1777,
+      "num_turns": 4,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "plan-02-from-failed-negative",
+      "skill": "plan",
+      "condition": "with_skill",
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 60,
+      "duration_ms": 68084,
+      "cost_usd": 0.1682331,
+      "input_tokens": 13,
+      "output_tokens": 3312,
+      "num_turns": 11,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "plan-02-from-failed-negative",
+      "skill": "plan",
+      "condition": "baseline",
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 60,
+      "duration_ms": 26713,
+      "cost_usd": 0.08258534999999999,
+      "input_tokens": 5,
+      "output_tokens": 1429,
+      "num_turns": 4,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "plan-03-natural-language-action-plan",
+      "skill": "plan",
+      "condition": "with_skill",
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 100,
+      "duration_ms": 84672,
+      "cost_usd": 0.19053314999999998,
+      "input_tokens": 13,
+      "output_tokens": 4386,
+      "num_turns": 11,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "plan-03-natural-language-action-plan",
+      "skill": "plan",
+      "condition": "baseline",
+      "passed": 1,
+      "total": 5,
+      "pass_rate": 20,
+      "duration_ms": 56133,
+      "cost_usd": 0.11983904999999997,
+      "input_tokens": 5,
+      "output_tokens": 3373,
+      "num_turns": 4,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "rubric-01-happy-criteria",
+      "skill": "rubric",
+      "condition": "with_skill",
+      "passed": 4,
+      "total": 5,
+      "pass_rate": 80,
+      "duration_ms": 77981,
+      "cost_usd": 0.1869417,
+      "input_tokens": 12,
+      "output_tokens": 3635,
+      "num_turns": 12,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "rubric-01-happy-criteria",
+      "skill": "rubric",
+      "condition": "baseline",
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 60,
+      "duration_ms": 39558,
+      "cost_usd": 0.10694145,
+      "input_tokens": 5,
+      "output_tokens": 1737,
+      "num_turns": 5,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "rubric-02-bootstrap-missing-contract",
+      "skill": "rubric",
+      "condition": "with_skill",
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 100,
+      "duration_ms": 61701,
+      "cost_usd": 0.1565601,
+      "input_tokens": 11,
+      "output_tokens": 3080,
+      "num_turns": 9,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "rubric-02-bootstrap-missing-contract",
+      "skill": "rubric",
+      "condition": "baseline",
+      "passed": 2,
+      "total": 5,
+      "pass_rate": 40,
+      "duration_ms": 17714,
+      "cost_usd": 0.06325815,
+      "input_tokens": 4,
+      "output_tokens": 865,
+      "num_turns": 3,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "rubric-03-existing-contract-natural-language",
+      "skill": "rubric",
+      "condition": "with_skill",
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 60,
+      "duration_ms": 47997,
+      "cost_usd": 0.1325592,
+      "input_tokens": 11,
+      "output_tokens": 2439,
+      "num_turns": 9,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "rubric-03-existing-contract-natural-language",
+      "skill": "rubric",
+      "condition": "baseline",
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 60,
+      "duration_ms": 25053,
+      "cost_usd": 0.06693825,
+      "input_tokens": 4,
+      "output_tokens": 1039,
+      "num_turns": 3,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "score-01-happy-after-plan-lock",
+      "skill": "score",
+      "condition": "with_skill",
+      "passed": 4,
+      "total": 5,
+      "pass_rate": 80,
+      "duration_ms": 99959,
+      "cost_usd": 0.29434395,
+      "input_tokens": 14,
+      "output_tokens": 4995,
+      "num_turns": 14,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "score-01-happy-after-plan-lock",
+      "skill": "score",
+      "condition": "baseline",
+      "passed": 2,
+      "total": 5,
+      "pass_rate": 40,
+      "duration_ms": 45064,
+      "cost_usd": 0.1339008,
+      "input_tokens": 8,
+      "output_tokens": 2757,
+      "num_turns": 10,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "score-02-locks-plan-false-negative",
+      "skill": "score",
+      "condition": "with_skill",
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 100,
+      "duration_ms": 18862,
+      "cost_usd": 0.06307575,
+      "input_tokens": 6,
+      "output_tokens": 723,
+      "num_turns": 4,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "score-02-locks-plan-false-negative",
+      "skill": "score",
+      "condition": "baseline",
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 100,
+      "duration_ms": 10598,
+      "cost_usd": 0.04749525,
+      "input_tokens": 3,
+      "output_tokens": 342,
+      "num_turns": 2,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "score-03-natural-language-judge-output",
+      "skill": "score",
+      "condition": "with_skill",
+      "passed": 0,
+      "total": 5,
+      "pass_rate": 0,
+      "duration_ms": 24874,
+      "cost_usd": 0.0714129,
+      "input_tokens": 4,
+      "output_tokens": 1322,
+      "num_turns": 3,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    },
+    {
+      "case_id": "score-03-natural-language-judge-output",
+      "skill": "score",
+      "condition": "baseline",
+      "passed": 1,
+      "total": 5,
+      "pass_rate": 20,
+      "duration_ms": 35811,
+      "cost_usd": 0.10642574999999999,
+      "input_tokens": 6,
+      "output_tokens": 2176,
+      "num_turns": 6,
+      "model": "claude-sonnet-4-6",
+      "exit_code": 0,
+      "final_contract_present": true
+    }
+  ]
+}

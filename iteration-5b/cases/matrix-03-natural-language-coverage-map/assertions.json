@@ -1,0 +1,11 @@
+{
+  "case_id": "matrix-03-natural-language-coverage-map",
+  "skill": "matrix",
+  "assertions": [
+    { "id": "a1", "text": "state is MatrixLocked", "source": "rubrix.json", "check": "json_path_equals", "path": "$.state", "expected": "MatrixLocked" },
+    { "id": "a2", "text": "matrix.rows has exactly 3 rows", "source": "rubrix.json", "check": "json_array_length_equals", "path": "$.matrix.rows", "expected": 3 },
+    { "id": "a3", "text": "each row maps to one existing criterion id (c1/c2/c3)", "source": "rubrix.json", "check": "json_array_field_subset", "path": "$.matrix.rows", "field": "criterion", "allowed": ["c1", "c2", "c3"] },
+    { "id": "a4", "text": "each row contains evidence_required with non-empty text", "source": "rubrix.json", "check": "json_array_items_field_nonempty", "path": "$.matrix.rows", "field": "evidence_required" },
+    { "id": "a5", "text": "locks.plan remains false", "source": "rubrix.json", "check": "json_path_equals", "path": "$.locks.plan", "expected": false }
+  ]
+}
