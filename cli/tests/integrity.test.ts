@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkMatrixIntegrity, checkPlanIntegrity } from "../src/core/integrity.ts";
+import { checkMatrixIntegrity, checkPlanIntegrity, checkRubricIntegrity } from "../src/core/integrity.ts";
 import type { RubrixContract } from "../src/core/contract.ts";
 
 function clean(): RubrixContract {
@@ -82,5 +82,18 @@ describe("checkPlanIntegrity", () => {
     c.plan!.steps.push({ id: "p1", action: "a3", covers: ["m1"] });
     const issues = checkPlanIntegrity(c);
     expect(issues.some((i) => i.message.includes("duplicates"))).toBe(true);
+  });
+});
+
+describe("checkRubricIntegrity", () => {
+  it("returns no issues on a clean rubric", () => {
+    expect(checkRubricIntegrity(clean())).toEqual([]);
+  });
+
+  it("flags duplicate rubric criterion ids", () => {
+    const c = clean();
+    c.rubric!.criteria.push({ id: "c1", description: "d-dup", weight: 0.25 });
+    const issues = checkRubricIntegrity(c);
+    expect(issues.some((i) => i.message.includes("duplicates") && i.message.includes("c1"))).toBe(true);
   });
 });

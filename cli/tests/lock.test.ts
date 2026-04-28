@@ -148,4 +148,20 @@ describe("lock command", () => {
     expect(after.state).toBe("PlanLocked");
     expect(after.locks.plan).toBe(true);
   });
+
+  it("refuses to lock rubric when criterion ids are duplicated", () => {
+    const c = baseDrafted();
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [
+        { id: "c1", description: "d", weight: 0.5 },
+        { id: "c1", description: "d-dup", weight: 0.5 },
+      ],
+    };
+    const path = tempContractFile(c);
+    const { code, err } = captureStderr(() => lockCommand({ key: "rubric", path }));
+    expect(code).toBe(3);
+    expect(err).toContain("duplicates");
+    expect(err).toContain("c1");
+  });
 });

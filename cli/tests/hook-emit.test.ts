@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { hookCommand, emitPreToolUse, emitContextOnly, emitStop } from "../src/commands/hook.ts";
+import { hookCommand, emitPreToolUse, emitContextOnly, emitStop, emitUserPromptExpansion } from "../src/commands/hook.ts";
 import type { RubrixContract } from "../src/core/contract.ts";
 
 function fullyLocked(state: RubrixContract["state"]): RubrixContract {
@@ -163,5 +163,78 @@ describe("hookCommand integration — PreToolUse permissionDecision", () => {
     expect(code).toBe(0);
     const payload = JSON.parse(io.stdoutBuf.trim());
     expect(payload.hookSpecificOutput.permissionDecision).toBe("allow");
+  });
+});
+
+describe("emitUserPromptExpansion — block via exit-code path", () => {
+  let io: IO;
+  beforeEach(() => { io = captureIO(); });
+  afterEach(() => { io.restore(); });
+
+  it("exits 2 with stderr reason when blocked, stdout stays empty", () => {
+    const code = emitUserPromptExpansion({ decision: "block", reason: "locks.plan=false" });
+    expect(code).toBe(2);
+    expect(io.stdoutBuf).toBe("");
+    expect(io.stderrBuf).toContain("locks.plan=false");
+  });
+
+  it("emits additionalContext as JSON when not blocked, exit 0", () => {
+    const code = emitUserPromptExpansion({ additionalContext: "[rubrix] state=PlanDrafted" });
+    expect(code).toBe(0);
+    expect(io.stderrBuf).toBe("");
+    const payload = JSON.parse(io.stdoutBuf.trim());
+    expect(payload.additionalContext).toContain("PlanDrafted");
+  });
+
+  it("emits empty payload when nothing to add", () => {
+    const code = emitUserPromptExpansion({});
+    expect(code).toBe(0);
+    expect(JSON.parse(io.stdoutBuf.trim())).toEqual({});
+  });
+});
+
+describe("hookCommand integration — UserPromptExpansion blocks /rubrix:score before plan lock", () => {
+  let io: IO;
+  let origIsTTY: boolean | undefined;
+  let origIter: unknown;
+
+  beforeEach(() => {
+    io = captureIO();
+    origIsTTY = (process.stdin as { isTTY?: boolean }).isTTY;
+    origIter = (process.stdin as unknown as { [Symbol.asyncIterator]: unknown })[Symbol.asyncIterator];
+    (process.stdin as { isTTY?: boolean }).isTTY = false;
+  });
+  afterEach(() => {
+    io.restore();
+    (process.stdin as { isTTY?: boolean }).isTTY = origIsTTY;
+    (process.stdin as unknown as { [Symbol.asyncIterator]: unknown })[Symbol.asyncIterator] = origIter;
+  });
+
+  it("exits 2 and writes block reason to stderr when /rubrix:score runs before plan lock", async () => {
+    const c = fullyLocked("PlanDrafted");
+    c.locks.plan = false;
+    const { dir, path } = tmpContract(c);
+    const stdinPayload = JSON.stringify({ cwd: dir, contract_path: path, prompt: "/rubrix:score" });
+    (process.stdin as unknown as { [Symbol.asyncIterator]: () => AsyncIterator<string> })[Symbol.asyncIterator] = async function* () {
+      yield stdinPayload;
+    };
+    const code = await hookCommand({ event: "UserPromptExpansion" });
+    expect(code).toBe(2);
+    expect(io.stdoutBuf).toBe("");
+    expect(io.stderrBuf).toContain("/rubrix:score");
+    expect(io.stderrBuf).toContain("locks.plan=false");
+  });
+
+  it("exits 0 with state context when /rubrix:score runs after plan lock", async () => {
+    const { dir, path } = tmpContract(fullyLocked("PlanLocked"));
+    const stdinPayload = JSON.stringify({ cwd: dir, contract_path: path, prompt: "/rubrix:score" });
+    (process.stdin as unknown as { [Symbol.asyncIterator]: () => AsyncIterator<string> })[Symbol.asyncIterator] = async function* () {
+      yield stdinPayload;
+    };
+    const code = await hookCommand({ event: "UserPromptExpansion" });
+    expect(code).toBe(0);
+    expect(io.stderrBuf).toBe("");
+    const payload = JSON.parse(io.stdoutBuf.trim());
+    expect(payload.additionalContext).toContain("PlanLocked");
   });
 });

@@ -4,6 +4,17 @@ export interface IntegrityIssue {
   message: string;
 }
 
+export function checkRubricIntegrity(c: RubrixContract): IntegrityIssue[] {
+  const issues: IntegrityIssue[] = [];
+  const criteria = c.rubric?.criteria ?? [];
+  const ids = criteria.map((x) => x.id);
+  const dupIds = ids.filter((id, i) => ids.indexOf(id) !== i);
+  if (dupIds.length) {
+    issues.push({ message: `rubric.criteria[].id has duplicates: ${[...new Set(dupIds)].join(", ")}` });
+  }
+  return issues;
+}
+
 export function checkMatrixIntegrity(c: RubrixContract): IntegrityIssue[] {
   const issues: IntegrityIssue[] = [];
   const criteriaIds = new Set((c.rubric?.criteria ?? []).map((x) => x.id));

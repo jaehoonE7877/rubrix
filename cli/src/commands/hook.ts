@@ -80,14 +80,24 @@ export function emitStop(decision: HookDecision): number {
   return 0;
 }
 
+export function emitUserPromptExpansion(decision: HookDecision): number {
+  if (decision.decision === "block") {
+    const reason = decision.reason ?? "rubrix UserPromptExpansion hook blocked prompt";
+    process.stderr.write(reason + "\n");
+    return 2;
+  }
+  return emitContextOnly(decision);
+}
+
 function emitForEvent(event: HookEvent, decision: HookDecision): number {
   switch (event) {
     case "PreToolUse":
       return emitPreToolUse(decision);
     case "Stop":
       return emitStop(decision);
-    case "SessionStart":
     case "UserPromptExpansion":
+      return emitUserPromptExpansion(decision);
+    case "SessionStart":
     case "PostToolUse":
     case "PostToolBatch":
     case "SubagentStop":

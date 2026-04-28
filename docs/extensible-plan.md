@@ -2,7 +2,7 @@
 
 > Claude Code Harness First
 
-> **Status (v1.0.0):** All target surface in this document is delivered. `claude plugin validate .` passes, 79 vitest tests pass, iter-4 benchmark hit with_skill 96.9% / +43.1pp delta. v1.1+ items (multi-evaluator aggregation, run history, `/improve` / `/replay` / `/learn`, domain packs) remain planned. See [`PLUGIN-README.md`](../PLUGIN-README.md) for the production-ready surface and [`docs/reviews/v1.0.0-codex-review.md`](reviews/v1.0.0-codex-review.md) for the v1.0 release review log.
+> **Status (v1.0.0):** All target surface in this document is delivered. `claude plugin validate .` passes, 87 vitest tests pass, iter-4 benchmark hit with_skill 96.9% / +43.1pp delta. v1.1+ items (multi-evaluator aggregation, run history, `/improve` / `/replay` / `/learn`, domain packs) remain planned. See [`PLUGIN-README.md`](../PLUGIN-README.md) for the production-ready surface and [`docs/reviews/v1.0.0-codex-review.md`](reviews/v1.0.0-codex-review.md) for the v1.0 release review log.
 
 ## 목적과 기본 방향
 
@@ -107,8 +107,9 @@ flowchart LR
 | --- | --- | --- |
 | 세션 초기화 | `SessionStart` | `.rubrix` 디렉토리 준비, 상태 요약 출력 |
 | Rubric 생성 | `UserPromptExpansion` | `/rubric` 실행 전 rubric 존재 여부 확인, 새로운 rubric 생성을 승인 |
+| Plan lock 사전 차단 | `UserPromptExpansion` | plan이 lock되지 않은 상태에서 `/rubrix:score` prompt 자체를 prompt-time(stderr + exit 2)에 차단 |
 | Rubric lock 검사 | `PreToolUse` | `rubric` / `matrix`가 lock되지 않은 상태에서 코드 수정 tool 호출 차단 |
-| Plan lock 검사 | `PreToolUse` | plan이 승인되지 않은 상태에서 `/score` 호출 차단 |
+| Plan lock 검사 | `PreToolUse` | plan이 승인되지 않은 상태에서 `/score` tool-time 호출도 차단 (UserPromptExpansion과 이중 방어층) |
 | 출력 후 검증 | `PostToolUse` | code diff 생성 후 rubrix validator 실행, 오류가 있으면 skill 종료 |
 | 병렬 평가 후 | `PostToolBatch` | multi-evaluator 판정 집계, disagreement report 생성 |
 | Subagent 종료 | `SubagentStop` | 각 evaluator 결과의 schema 검증 및 confidence 계산 |

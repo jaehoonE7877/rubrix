@@ -41,7 +41,7 @@ claude plugin validate .
 cd cli
 npm install
 npm run typecheck   # exit 0
-npm test            # 79+ vitest tests pass
+npm test            # 87+ vitest tests pass
 ```
 
 ## 4. CLI smoke tests on examples

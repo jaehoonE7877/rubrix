@@ -62,7 +62,7 @@ See [`hooks/hooks.json`](hooks/hooks.json) for the full Claude Code 3-level nest
 ## Verification
 
 ```bash
-cd cli && npm install && npm test           # 79 vitest pass
+cd cli && npm install && npm test           # 87 vitest pass
 claude plugin validate .                    # plugin manifest pass
 node cli/bin/rubrix.js validate examples/self-eval/rubrix.json
 node cli/bin/rubrix.js validate examples/ios-refactor/rubrix.json

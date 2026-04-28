@@ -1,5 +1,5 @@
 import { ContractError, loadContract, saveContract } from "../core/contract.ts";
-import { checkMatrixIntegrity, checkPlanIntegrity } from "../core/integrity.ts";
+import { checkMatrixIntegrity, checkPlanIntegrity, checkRubricIntegrity } from "../core/integrity.ts";
 import { lockTarget, type LockKey } from "../core/state.ts";
 
 export interface LockOptions {
@@ -29,6 +29,13 @@ export function lockCommand(opts: LockOptions): number {
     if (!requiredArtifact) {
       process.stderr.write(`cannot lock ${opts.key}: ${opts.key} artifact is missing\n`);
       return 3;
+    }
+    if (opts.key === "rubric") {
+      const issues = checkRubricIntegrity(c);
+      if (issues.length) {
+        process.stderr.write(`cannot lock rubric: semantic integrity failed:\n${issues.map((i) => "  " + i.message).join("\n")}\n`);
+        return 3;
+      }
     }
     if (opts.key === "matrix") {
       const issues = checkMatrixIntegrity(c);
