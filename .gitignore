@@ -38,3 +38,9 @@ coverage/
 
 # Rubrix — generated task state
 .rubrix/
+
+# Rubrix eval scaffold — per-run outputs (bulky; iteration-N/{benchmark,decision}.{json,md,log} + viewer + cases stay in repo)
+iteration-*/eval-*/
+
+# Codex companion job state
+.codex/
