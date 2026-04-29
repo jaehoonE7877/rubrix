@@ -21,6 +21,5 @@
     "./agents/output-judge.md",
     "./agents/plan-critic.md",
     "./agents/rubric-architect.md"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }
