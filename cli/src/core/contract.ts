@@ -101,7 +101,20 @@ function resolveSymlinkTarget(path: string): string {
 
 export function formatError(err: ErrorObject): string {
   const where = err.instancePath || "/";
-  return `  ${where} ${err.message ?? "(no message)"}${err.params ? " " + JSON.stringify(err.params) : ""}`;
+  const hint = criterionFieldHint(err);
+  const tail = hint ? ` ${hint}` : err.params ? " " + JSON.stringify(err.params) : "";
+  return `  ${where} ${err.message ?? "(no message)"}${tail}`;
+}
+
+function criterionFieldHint(err: ErrorObject): string | null {
+  const params = err.params as Record<string, unknown> | undefined;
+  if (err.keyword === "required" && params?.missingProperty === "criterion") {
+    return `{"missingProperty":"criterion"} — use field name 'criterion' (not 'criterion_id'); see cli/schemas/rubrix.schema.json`;
+  }
+  if (err.keyword === "additionalProperties" && params?.additionalProperty === "criterion_id") {
+    return `{"additionalProperty":"criterion_id"} — schema rejects 'criterion_id'; use 'criterion' instead (iteration-5 회귀 가드)`;
+  }
+  return null;
 }
 
 export class ContractError extends Error {

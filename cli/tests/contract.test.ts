@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, readFileSync, readdirSync, symlinkSync, lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { saveContract, loadContract } from "../src/core/contract.ts";
+import { saveContract, loadContract, formatError, validateContract } from "../src/core/contract.ts";
 import { tempContractFile, baseDrafted } from "./helpers.ts";
 
 describe("saveContract — atomic + symlink-safe", () => {
@@ -41,5 +41,37 @@ describe("saveContract — atomic + symlink-safe", () => {
     expect(() => saveContract(path, c)).toThrow(/refusing to write invalid/);
     const after = JSON.parse(readFileSync(path, "utf8"));
     expect(after.state).toBe("RubricDrafted");
+  });
+});
+
+describe("formatError — criterion_id 환각에 대한 진단 hint", () => {
+  it("matrix.rows[]에 criterion 누락 시 'use field name criterion' hint 출력", () => {
+    const r = validateContract({
+      version: "0.1.0",
+      intent: { summary: "x" },
+      rubric: { threshold: 0.5, criteria: [{ id: "c1", description: "d", weight: 1 }] },
+      matrix: { rows: [{ id: "m1", evidence_required: "e" }] },
+      state: "MatrixDrafted",
+      locks: { rubric: true, matrix: false, plan: false },
+    });
+    expect(r.ok).toBe(false);
+    const messages = r.errors.map(formatError).join("\n");
+    expect(messages).toMatch(/use field name 'criterion'/);
+    expect(messages).toMatch(/not 'criterion_id'/);
+  });
+
+  it("matrix.rows[]에 criterion_id 추가 시 'schema rejects criterion_id' hint 출력", () => {
+    const r = validateContract({
+      version: "0.1.0",
+      intent: { summary: "x" },
+      rubric: { threshold: 0.5, criteria: [{ id: "c1", description: "d", weight: 1 }] },
+      matrix: { rows: [{ id: "m1", criterion: "c1", criterion_id: "c1", evidence_required: "e" }] },
+      state: "MatrixDrafted",
+      locks: { rubric: true, matrix: false, plan: false },
+    });
+    expect(r.ok).toBe(false);
+    const messages = r.errors.map(formatError).join("\n");
+    expect(messages).toMatch(/schema rejects 'criterion_id'/);
+    expect(messages).toMatch(/iteration-5 회귀 가드/);
   });
 });
