@@ -42,6 +42,10 @@ coverage/
 # Rubrix eval scaffold — not tracked in plugin repo
 iteration-*/
 
+# Rubrix per-run evidence — Release asset only, never committed
+/reports/
+reports/v*/
+
 # Plugin root — not part of Claude Code plugin structure
 # Anchored to repo root so cli/bin/ is not affected
 /registry/

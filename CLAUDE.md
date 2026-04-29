@@ -84,7 +84,7 @@ v1.0.0에서 구현된 표면 (변경 시 기존 동작 유지 확인 필수):
 - Contract/state: `rubrix.json`
 - Requirements: `requirements.md`
 - Plan: `plan.json`
-- Run history/evidence: `reports/<run-id>/`
+- Run evidence (per-release): GitHub Release asset (`evidence-bundle.tar.gz`); 로컬 보관은 `~/rubrix-evidence/v<version>/` — repo에 commit하지 않는다.
 - Example: `examples/<name>/rubrix.json`, `examples/<name>/artifact.md`, `examples/<name>/expected-report.md`
 
 새 artifact format을 추가하면 같은 변경에서 schema나 validation 기준도 같이 추가한다.
@@ -126,7 +126,7 @@ v1.0.0에서 구현된 표면 (변경 시 기존 동작 유지 확인 필수):
 - code identifier, command, path는 원문 그대로 유지한다.
 - 정식 release 이전에는 `README.md`, `PLUGIN-README.md`, `CLAUDE.md`, `VERIFICATION.md`, `docs/extensible-plan.md` 5개 외에는 신규 user-facing 문서를 만들지 않는다. 외부 사용자가 harness를 처음 만났을 때 읽어야 할 문서량이 늘어나지 않도록 한다.
 - release 부산물(CHANGELOG, release notes, codex review summary 등)은 git tag 메시지 또는 GitHub Release notes로만 보관하고 repo에 commit하지 않는다.
-- repo에 commit 하는 것은 (a) SSoT 파일 (`rubrix.json`, `cli/schemas/*.schema.json`, `plan.json`, `requirements.md`, `examples/<name>/{rubrix.json,artifact.md,expected-report.md}`) 과 (b) test/run 결과 (`cli/tests/`, `examples/<name>/expected-report.md`, `reports/<run-id>/`) 만 허용한다.
+- repo에 commit 하는 것은 (a) SSoT 파일 (`rubrix.json`, `cli/schemas/*.schema.json`, `plan.json`, `requirements.md`, `examples/<name>/{rubrix.json,artifact.md,expected-report.md}`) 과 (b) in-repo test 자산 (`cli/tests/`, `examples/<name>/expected-report.md`) 만 허용한다. per-run evidence(transcript, hook events, run-specific rubrix.json contracts, codex review markdown)는 repo에 commit하지 않고 GitHub Release asset(`evidence-bundle.tar.gz`)으로만 첨부한다 (annotated tag 메시지에 SHA-256 박제). 원격 main은 항상 production 급으로 유지한다.
 
 ## 하지 말 것
 
