@@ -1,8 +1,0 @@
-{
-  "version": "0.1",
-  "intent": {
-    "summary": "Evaluate CLI output quality"
-  },
-  "state": "IntentDrafted",
-  "locks": { "rubric": false, "matrix": false, "plan": false }
-}

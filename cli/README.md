@@ -28,7 +28,7 @@ Bundled at `node_modules/@rubrix/cli/schemas/`:
 
 ## Lifecycle
 
-`IntentDrafted → RubricDrafted → RubricLocked → MatrixDrafted → MatrixLocked → PlanDrafted → PlanLocked → Scoring → Passed | Failed`. Failed loops back to `PlanDrafted` (clears stale `scores[]`). See the main repo's `docs/lifecycle-state-machine.md`.
+`IntentDrafted → RubricDrafted → RubricLocked → MatrixDrafted → MatrixLocked → PlanDrafted → PlanLocked → Scoring → Passed | Failed`. Failed loops back to `PlanDrafted` (clears stale `scores[]`). State enum and per-state lock invariants are codified in [`schemas/rubrix.schema.json`](schemas/rubrix.schema.json).
 
 ## License
 

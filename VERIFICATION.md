@@ -5,14 +5,14 @@ A repo-shape + smoke-test checklist. Run from the plugin root.
 ## 1. Repo shape
 
 ```bash
-find .claude-plugin cli/{schemas,bin,src,tests} hooks scripts skills agents registry examples docs/reviews -type f \
+find .claude-plugin cli/{schemas,bin,src,tests} hooks scripts skills agents examples -type f \
   | sort
 ```
 
 Required files:
 
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
-- `cli/schemas/{rubrix,evaluator-result,registry}.schema.json`
+- `cli/schemas/{rubrix,evaluator-result}.schema.json`
 - `cli/bin/rubrix.js`, `cli/src/cli.ts`
 - `cli/src/core/{state,contract,integrity}.ts`
 - `cli/src/commands/{validate,gate,report,state,lock,hook}.ts`
@@ -22,11 +22,9 @@ Required files:
 - `scripts/{session_start,user_prompt_expansion,pre_tool_use,post_tool_use,post_tool_batch,subagent_stop,stop}.sh` (all `chmod +x`)
 - `skills/{rubric,matrix,plan,score}/SKILL.md`
 - `agents/{rubric-architect,matrix-auditor,plan-critic,evidence-finder,output-judge}.md`
-- `registry/{skills,agents,hooks}.json`
 - `examples/{self-eval,ios-refactor}/{rubrix.json,artifact.md,expected-report.md}`
-- `docs/lifecycle-state-machine.md`
-- `docs/reviews/{phase-1..6,v1.0.0-codex-review}.md`
-- `bin/rubrix`, `PLUGIN-README.md`, `VERIFICATION.md`, `README.md`, `CLAUDE.md`
+- `docs/extensible-plan.md`
+- `PLUGIN-README.md`, `VERIFICATION.md`, `README.md`, `CLAUDE.md`
 
 ## 2. Plugin manifest validation
 
@@ -92,36 +90,7 @@ Covered by `cli/tests/contract.test.ts` (3 tests):
 - Writing through a symlink preserves the symlink
 - Schema-invalid contract is refused, file unchanged
 
-## 8. Registry consistency
-
-```bash
-node -e '
-  const fs = require("fs");
-  for (const k of ["skills", "agents", "hooks"]) {
-    const r = JSON.parse(fs.readFileSync("registry/" + k + ".json", "utf8"));
-    for (const e of r.entries) {
-      if (!fs.existsSync(e.path)) { console.error("missing", e.path); process.exit(1); }
-    }
-  }
-  console.log("registry: ok");
-'
-# expected: registry: ok
-```
-
-## 9. Codex review logs
-
-```bash
-for n in 1 2 3 4 5 6; do
-  f="docs/reviews/phase-${n}.md"
-  if [ ! -f "$f" ]; then echo "phase-${n}: MISSING"
-  elif ! grep -q "no further improvements" "$f"; then echo "phase-${n}: NOT yet approved"; fi
-done
-test -f docs/reviews/v1.0.0-codex-review.md || echo "v1.0.0 review log: MISSING"
-```
-
-Final v1.0.0 verification: no lines should be printed.
-
-## 10. Packaging dry run
+## 8. Packaging dry run
 
 ```bash
 (cd cli && npm pack --dry-run)                                 # tarball OK
@@ -132,11 +101,10 @@ node -e 'JSON.parse(require("fs").readFileSync("hooks/hooks.json","utf8"));'
 
 **Do not run `npm publish` without explicit user approval.**
 
-## 11. Eval scaffold (optional, costs OAuth quota)
+## 9. Eval scaffold (optional, costs OAuth quota)
 
 ```bash
 node scripts/eval/run-skill-benchmark.mjs --iteration iteration-N --parallel 8 --budget-usd 1 --model sonnet
 node scripts/eval/grade-run.mjs --iteration iteration-N
 node scripts/eval/aggregate.mjs --iteration iteration-N --skill-name rubrix-skills
-# Reference: iter-4 hit with_skill 96.9% / +43.1pp delta over baseline (13 cases × 2 conditions = 26 runs).
 ```
