@@ -23,6 +23,8 @@ Owns `scores[]`, the `PlanLocked -> Scoring` transition, and the `Scoring -> Pas
 
 3. **Write `scores[]` into `rubrix.json`** — for every criterion produce one entry with `criterion` (id string), `score` (0–1), `evaluator` (agent name), `confidence` (0–1), and `notes` (free text). Use `Edit` or `Write` on `rubrix.json` directly; do not defer this write.
 
+   **Field name (안티-환각):** the field is literally `"criterion"` — NOT `"criterion_id"`, NOT `"criteria_id"`, NOT `"criteriaId"`. The schema (`cli/schemas/rubrix.schema.json`) sets `additionalProperties: false` on `scores[]`, so any other spelling causes `rubrix validate` to fail. Copy the field name from the example below verbatim.
+
 4. **Run `rubrix validate rubrix.json`** and fix any errors before continuing.
 
 5. **Run `rubrix gate rubrix.json --apply`** — this is the terminal mutation:

@@ -22,6 +22,8 @@ Owns `matrix.rows[]` and the `RubricLocked -> MatrixDrafted -> MatrixLocked` tra
 
    **Decision rule:** every `matrix.rows[]` entry must use the exact `criterion` id from `rubric.criteria[].id`. Do not rename or paraphrase the criterion id, even if you reword the `evidence_required` text — the gate command joins on this id.
 
+   **Field name (안티-환각):** the field is literally `"criterion"` — NOT `"criterion_id"`, NOT `"rubric_criterion"`, NOT `"criteriaId"`. The schema (`cli/schemas/rubrix.schema.json`) sets `additionalProperties: false` on `matrix.rows[]`, so any other spelling causes `rubrix validate` to fail with `additionalProperty` or `missingProperty=criterion`. Copy the field name from the example below verbatim.
+
 ## Worked example
 
 ```jsonc

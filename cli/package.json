@@ -1,6 +1,6 @@
 {
   "name": "@rubrix/cli",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "description": "Rubrix CLI: validate, gate, report, state, lock, and hook adapter for the rubrix.json contract.",
   "license": "MIT",
   "author": "Jaehoon Seo",
