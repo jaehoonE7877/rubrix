@@ -1,18 +1,17 @@
-# Artifact under evaluation: Rubrix v0.1 plugin scaffold
+# Artifact under evaluation: Rubrix v1.0 plugin scaffold
 
-This document describes what the self-eval rubric scores. The "artifact" is the Rubrix v0.1 repo itself — the schema, CLI, hooks, skills, agents, registry, examples, and packaging metadata produced across Phases 1–6.
+This document describes what the self-eval rubric scores. The "artifact" is the Rubrix v1.0 repo itself — the schema, CLI, hooks, skills, agents, examples, and packaging metadata.
 
 ## Surfaces evaluated
 
 | Surface | Source of truth |
 | --- | --- |
 | Plugin manifest | `.claude-plugin/plugin.json` |
-| Schemas | `cli/schemas/{rubrix,evaluator-result,registry}.schema.json` |
-| CLI | `cli/src/`, `cli/bin/`, `bin/rubrix` |
+| Schemas | `cli/schemas/{rubrix,evaluator-result}.schema.json` |
+| CLI | `cli/src/`, `cli/bin/rubrix.js` |
 | Hooks | `hooks/hooks.json`, `scripts/*.sh` |
 | Skills | `skills/{rubric,matrix,plan,score}/SKILL.md` |
 | Agents | `agents/*.md` |
-| Registry | `registry/{skills,agents,hooks}.json` |
 
 ## How evaluators should read this
 
