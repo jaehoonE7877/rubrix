@@ -95,7 +95,7 @@ node cli/bin/rubrix.js report examples/ios-refactor/rubrix.json
 ## 검증
 
 ```bash
-cd cli && npm install && npm test           # vitest 87개 통과
+cd cli && npm install && npm test           # vitest 93개 통과
 claude plugin validate .                    # plugin manifest 통과
 node cli/bin/rubrix.js validate examples/self-eval/rubrix.json
 node cli/bin/rubrix.js validate examples/ios-refactor/rubrix.json

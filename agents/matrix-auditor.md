@@ -34,7 +34,7 @@ If you audit multiple criteria, emit one JSON object per line.
 
 - Every `rubric.criteria[].id` has at least one matrix row whose `criterion` field references it.
 - Every matrix row's `evidence_required` is observable in the artifact.
-- `method` is concrete (test command, agent name, file path) — not "manually inspect".
+- `verify` is concrete (test command, agent name, file path) — not "manually inspect".
 - No matrix row is duplicated.
 
 ## Rules
