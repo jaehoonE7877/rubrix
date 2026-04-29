@@ -1,0 +1,31 @@
+{
+  "version": "0.1",
+  "intent": {
+    "summary": "Plan Rubrix skill improvements"
+  },
+  "state": "Failed",
+  "locks": { "rubric": true, "matrix": true, "plan": true },
+  "rubric": {
+    "threshold": 0.8,
+    "criteria": [
+      { "id": "c1", "description": "Every matrix row maps to evidence", "weight": 0.5, "floor": 0.7 },
+      { "id": "c2", "description": "Each criterion has actionable recovery guidance", "weight": 0.5, "floor": 0.7 }
+    ]
+  },
+  "matrix": {
+    "rows": [
+      { "id": "m1", "criterion": "c1", "evidence_required": "Matrix row evidence references are present" },
+      { "id": "m2", "criterion": "c2", "evidence_required": "Recovery guidance is present for failed criteria" }
+    ]
+  },
+  "plan": {
+    "steps": [
+      { "id": "p1", "action": "Review failed matrix coverage", "covers": ["m1"] },
+      { "id": "p2", "action": "Add recovery guidance for missing evidence mappings", "covers": ["m2"] }
+    ]
+  },
+  "scores": [
+    { "criterion": "c1", "score": 0.9, "evaluator": "fixture", "confidence": 0.9, "notes": "Coverage is present" },
+    { "criterion": "c2", "score": 0.4, "evaluator": "fixture", "confidence": 0.9, "notes": "Below floor because recovery guidance is missing" }
+  ]
+}

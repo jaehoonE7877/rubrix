@@ -1,0 +1,58 @@
+{
+  "name": "@rubrix/cli",
+  "version": "1.0.0",
+  "description": "Rubrix CLI: validate, gate, report, state, lock, and hook adapter for the rubrix.json contract.",
+  "license": "MIT",
+  "author": "Jaehoon Seo",
+  "homepage": "https://github.com/jaehoonE7877/rubrix#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaehoonE7877/rubrix.git",
+    "directory": "cli"
+  },
+  "bugs": {
+    "url": "https://github.com/jaehoonE7877/rubrix/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "rubrix",
+    "evaluation",
+    "rubric",
+    "harness",
+    "cli"
+  ],
+  "type": "module",
+  "bin": {
+    "rubrix": "bin/rubrix.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "schemas",
+    "tsconfig.json",
+    "package.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "commander": "^12.1.0",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

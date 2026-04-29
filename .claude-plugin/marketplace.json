@@ -1,0 +1,32 @@
+{
+  "name": "rubrix",
+  "owner": {
+    "name": "Jaehoon Seo",
+    "email": "sjh7877@naver.com"
+  },
+  "description": "Evaluation-contract-first harness for Claude Code agents.",
+  "plugins": [
+    {
+      "name": "rubrix",
+      "source": {
+        "source": "github",
+        "repo": "jaehoonE7877/rubrix"
+      },
+      "description": "rubrix.json drives the lifecycle; hooks, CLI, skills, and subagents enforce it.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Jaehoon Seo"
+      },
+      "homepage": "https://github.com/jaehoonE7877/rubrix",
+      "license": "MIT",
+      "keywords": [
+        "claude-code",
+        "harness",
+        "evaluation",
+        "rubric",
+        "plugin",
+        "agents"
+      ]
+    }
+  ]
+}

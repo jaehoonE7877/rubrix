@@ -1,0 +1,5 @@
+[
+  { "id": "p1-a1", "text": "validate exits non-zero on invalid contract" },
+  { "id": "p1-a2", "text": "validate prints error path on stderr" },
+  { "id": "p1-a3", "text": "validate exits 0 on valid contract" }
+]

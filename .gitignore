@@ -38,3 +38,13 @@ coverage/
 
 # Rubrix — generated task state
 .rubrix/
+
+# Rubrix eval scaffold — per-run outputs, intermediate indexes, viewer HTML
+# Tracked only: iteration-N/{benchmark.{json,md}, decision.md, cases/}
+iteration-*/eval-*/
+iteration-*/viewer/
+iteration-*/run-index.json
+iteration-*/grading-index.json
+
+# Codex companion job state
+.codex/

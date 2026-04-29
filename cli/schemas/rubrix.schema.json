@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rubrix.dev/schemas/rubrix.schema.json",
+  "title": "Rubrix Contract",
+  "description": "Canonical evaluation contract and lifecycle state for a single Rubrix run.",
+  "type": "object",
+  "required": ["version", "intent", "state", "locks"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version of this rubrix.json document.",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "intent": {
+      "type": "object",
+      "required": ["summary"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string", "minLength": 1 },
+        "details": { "type": "string" },
+        "owner": { "type": "string" }
+      }
+    },
+    "rubric": {
+      "type": "object",
+      "required": ["criteria", "threshold"],
+      "additionalProperties": false,
+      "properties": {
+        "threshold": {
+          "type": "number",
+          "description": "Minimum total weighted score required to Pass. No implicit default; must be set before lock.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "description", "weight"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+              "description": { "type": "string", "minLength": 1 },
+              "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "floor": {
+                "type": "number",
+                "description": "Per-criterion minimum score; if any criterion falls below floor, the run Fails regardless of total.",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "verify": {
+                "type": "string",
+                "description": "How evidence for this criterion is collected (e.g., 'agent:output-judge', 'manual review', 'vitest --coverage')."
+              }
+            }
+          }
+        }
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "required": ["rows"],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "criterion", "evidence_required"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "criterion": { "type": "string", "description": "rubric.criteria[].id reference" },
+              "evidence_required": { "type": "string" },
+              "verify": { "type": "string", "description": "How this row's evidence is collected (e.g., 'vitest', 'manual review', 'agent:output-judge')." }
+            }
+          }
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "required": ["steps"],
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "action"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "action": { "type": "string", "minLength": 1 },
+              "produces": { "type": "string", "description": "Expected artifact id." },
+              "covers": {
+                "type": "array",
+                "items": { "type": "string", "description": "matrix.rows[].id this step satisfies." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "IntentDrafted",
+        "RubricDrafted",
+        "RubricLocked",
+        "MatrixDrafted",
+        "MatrixLocked",
+        "PlanDrafted",
+        "PlanLocked",
+        "Scoring",
+        "Passed",
+        "Failed"
+      ],
+      "description": "Lifecycle state. See docs/lifecycle-state-machine.md for transition rules."
+    },
+    "locks": {
+      "type": "object",
+      "required": ["rubric", "matrix", "plan"],
+      "additionalProperties": false,
+      "description": "Lock gates separate from state. A lock=true commits that artifact and makes downstream phases unblockable.",
+      "properties": {
+        "rubric": { "type": "boolean" },
+        "matrix": { "type": "boolean" },
+        "plan": { "type": "boolean" }
+      }
+    },
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion", "score"],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": { "type": "string", "description": "rubric.criteria[].id reference" },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "evaluator": { "type": "string", "description": "agent or evaluator id that produced this score" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["file", "command", "url", "snippet", "agent_output"] },
+          "ref": { "type": "string", "description": "path, command, URL, or agent name." },
+          "summary": { "type": "string" },
+          "covers": {
+            "type": "array",
+            "items": { "type": "string", "description": "matrix.rows[].id this evidence supports." }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "IntentDrafted" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": false }, "matrix": { "const": false }, "plan": { "const": false } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "RubricDrafted" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": false }, "matrix": { "const": false }, "plan": { "const": false } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "RubricLocked" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": false }, "plan": { "const": false } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "MatrixDrafted" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": false }, "plan": { "const": false } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "MatrixLocked" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": true }, "plan": { "const": false } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "PlanDrafted" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": true }, "plan": { "const": false } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "PlanLocked" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": true }, "plan": { "const": true } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "Scoring" } }, "required": ["state"] },
+      "then": { "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": true }, "plan": { "const": true } } } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "Passed" } }, "required": ["state"] },
+      "then": {
+        "required": ["scores"],
+        "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": true }, "plan": { "const": true } } } }
+      }
+    },
+    {
+      "if": { "properties": { "state": { "const": "Failed" } }, "required": ["state"] },
+      "then": {
+        "required": ["scores"],
+        "properties": { "locks": { "type": "object", "properties": { "rubric": { "const": true }, "matrix": { "const": true }, "plan": { "const": true } } } }
+      }
+    },
+    {
+      "if": { "properties": { "state": { "enum": ["RubricDrafted", "RubricLocked", "MatrixDrafted", "MatrixLocked", "PlanDrafted", "PlanLocked", "Scoring", "Passed", "Failed"] } }, "required": ["state"] },
+      "then": { "required": ["rubric"] }
+    },
+    {
+      "if": { "properties": { "state": { "enum": ["MatrixDrafted", "MatrixLocked", "PlanDrafted", "PlanLocked", "Scoring", "Passed", "Failed"] } }, "required": ["state"] },
+      "then": { "required": ["matrix"] }
+    },
+    {
+      "if": { "properties": { "state": { "enum": ["PlanDrafted", "PlanLocked", "Scoring", "Passed", "Failed"] } }, "required": ["state"] },
+      "then": { "required": ["plan"] }
+    }
+  ]
+}

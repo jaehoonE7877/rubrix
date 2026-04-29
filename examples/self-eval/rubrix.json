@@ -1,0 +1,43 @@
+{
+  "version": "0.1.0",
+  "intent": {
+    "summary": "Self-evaluate the Rubrix v0.1 Phase 1 scaffold (schema + plugin manifest + lifecycle doc).",
+    "details": "Scope is intentionally limited to Phase 1 deliverables: .claude-plugin/plugin.json, cli/schemas/rubrix.schema.json, cli/schemas/evaluator-result.schema.json, examples/self-eval/rubrix.json, docs/lifecycle-state-machine.md. Later-phase surfaces (CLI, hooks, skills, agents, registry, packaging) are evaluated in their own phase examples.",
+    "owner": "rubrix"
+  },
+  "rubric": {
+    "threshold": 0.8,
+    "criteria": [
+      {
+        "id": "schema_self_validates",
+        "description": "examples/self-eval/rubrix.json validates against cli/schemas/rubrix.schema.json with no errors.",
+        "weight": 0.3,
+        "floor": 1.0
+      },
+      {
+        "id": "state_enum_complete",
+        "description": "cli/schemas/rubrix.schema.json state enum lists all 10 lifecycle states from docs/lifecycle-state-machine.md in the documented order.",
+        "weight": 0.25,
+        "floor": 1.0
+      },
+      {
+        "id": "lock_invariants_encoded",
+        "description": "cli/schemas/rubrix.schema.json conditional allOf branches encode the lock invariants for every state listed in docs/lifecycle-state-machine.md, not only the Locked/Scoring states.",
+        "weight": 0.25,
+        "floor": 0.8
+      },
+      {
+        "id": "plugin_manifest_valid",
+        "description": ".claude-plugin/plugin.json parses as JSON and contains name, version, description, license consistent with the Claude Code plugin convention.",
+        "weight": 0.2,
+        "floor": 0.8
+      }
+    ]
+  },
+  "state": "IntentDrafted",
+  "locks": {
+    "rubric": false,
+    "matrix": false,
+    "plan": false
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "kind": "skills",
+  "version": "1.0.0",
+  "entries": [
+    {
+      "id": "rubric",
+      "path": "skills/rubric/SKILL.md",
+      "description": "Draft and lock rubric.criteria[].",
+      "state": "RubricLocked"
+    },
+    {
+      "id": "matrix",
+      "path": "skills/matrix/SKILL.md",
+      "description": "Draft and lock matrix.rows[] mapping criteria to evidence.",
+      "state": "MatrixLocked"
+    },
+    {
+      "id": "plan",
+      "path": "skills/plan/SKILL.md",
+      "description": "Draft and lock plan.steps[]; supports the Failed -> PlanDrafted retry loop.",
+      "state": "PlanLocked"
+    },
+    {
+      "id": "score",
+      "path": "skills/score/SKILL.md",
+      "description": "Run evaluators, populate scores[], decide pass/fail via rubrix gate --apply.",
+      "state": "Scoring"
+    }
+  ]
+}

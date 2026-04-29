@@ -1,0 +1,65 @@
+{
+  "version": "0.1.0",
+  "intent": {
+    "summary": "Refactor LoginViewController to extract auth logic into LoginInteractor without breaking behavior.",
+    "details": "Existing tests must continue to pass. Public API of LoginViewController stays unchanged. Network calls stay on a background queue.",
+    "owner": "ios-team"
+  },
+  "rubric": {
+    "threshold": 0.85,
+    "criteria": [
+      {
+        "id": "tests_pass",
+        "description": "All existing iOS unit + UI tests pass after the refactor.",
+        "weight": 0.4,
+        "floor": 1.0
+      },
+      {
+        "id": "public_api_unchanged",
+        "description": "Public symbols of LoginViewController have identical signatures pre/post refactor.",
+        "weight": 0.25,
+        "floor": 1.0
+      },
+      {
+        "id": "interactor_extracted",
+        "description": "Auth logic is moved into LoginInteractor; LoginViewController has no direct AuthService calls.",
+        "weight": 0.2,
+        "floor": 0.7
+      },
+      {
+        "id": "background_queue_preserved",
+        "description": "Every network call stays on URLSession's background queue (no main-thread blocking).",
+        "weight": 0.15,
+        "floor": 0.8
+      }
+    ]
+  },
+  "matrix": {
+    "rows": [
+      { "id": "row_tests", "criterion": "tests_pass", "evidence_required": "xcodebuild test output with all targets green", "verify": "command:xcodebuild" },
+      { "id": "row_api", "criterion": "public_api_unchanged", "evidence_required": "git diff of LoginViewController public declarations is empty", "verify": "command:git diff" },
+      { "id": "row_extract", "criterion": "interactor_extracted", "evidence_required": "no `AuthService` references in LoginViewController.swift", "verify": "agent:evidence-finder" },
+      { "id": "row_queue", "criterion": "background_queue_preserved", "evidence_required": "no DispatchQueue.main.sync around network calls", "verify": "agent:evidence-finder" }
+    ]
+  },
+  "plan": {
+    "steps": [
+      { "id": "p1", "action": "Introduce LoginInteractor protocol with login(email:password:) -> Result<User,Error>", "produces": "LoginInteractor.swift", "covers": ["row_extract"] },
+      { "id": "p2", "action": "Move AuthService calls from LoginViewController into LoginInteractor; keep dispatch on background queue", "produces": "LoginViewController.swift", "covers": ["row_extract", "row_queue"] },
+      { "id": "p3", "action": "Verify LoginViewController public API is unchanged via diff", "covers": ["row_api"] },
+      { "id": "p4", "action": "Run xcodebuild test for the App scheme", "covers": ["row_tests"] }
+    ]
+  },
+  "state": "Passed",
+  "locks": {
+    "rubric": true,
+    "matrix": true,
+    "plan": true
+  },
+  "scores": [
+    { "criterion": "tests_pass",                 "score": 1.0, "evaluator": "evidence-finder", "confidence": 0.95, "notes": "xcodebuild test exit=0; 142 tests, 0 failures" },
+    { "criterion": "public_api_unchanged",       "score": 1.0, "evaluator": "evidence-finder", "confidence": 0.9,  "notes": "git diff main..HEAD on public symbols of LoginViewController is empty" },
+    { "criterion": "interactor_extracted",       "score": 0.8, "evaluator": "output-judge",    "confidence": 0.8,  "notes": "AuthService removed from LoginViewController; one residual reference in #if DEBUG block kept intentionally" },
+    { "criterion": "background_queue_preserved", "score": 0.9, "evaluator": "output-judge",    "confidence": 0.85, "notes": "All URLSession calls remain off the main queue; one DispatchQueue.main.async at completion remains for UI update which is correct" }
+  ]
+}
