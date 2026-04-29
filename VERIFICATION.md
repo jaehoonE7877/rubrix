@@ -5,7 +5,7 @@ A repo-shape + smoke-test checklist. Run from the plugin root.
 ## 1. Repo shape
 
 ```bash
-find .claude-plugin cli/{schemas,bin,src,tests} hooks scripts skills agents examples docs/reviews -type f \
+find .claude-plugin cli/{schemas,bin,src,tests} hooks scripts skills agents examples -type f \
   | sort
 ```
 
@@ -23,8 +23,7 @@ Required files:
 - `skills/{rubric,matrix,plan,score}/SKILL.md`
 - `agents/{rubric-architect,matrix-auditor,plan-critic,evidence-finder,output-judge}.md`
 - `examples/{self-eval,ios-refactor}/{rubrix.json,artifact.md,expected-report.md}`
-- `docs/lifecycle-state-machine.md`
-- `docs/reviews/{phase-1..6,v1.0.0-codex-review}.md`
+- `docs/extensible-plan.md`
 - `PLUGIN-README.md`, `VERIFICATION.md`, `README.md`, `CLAUDE.md`
 
 ## 2. Plugin manifest validation
@@ -91,20 +90,7 @@ Covered by `cli/tests/contract.test.ts` (3 tests):
 - Writing through a symlink preserves the symlink
 - Schema-invalid contract is refused, file unchanged
 
-## 8. Codex review logs
-
-```bash
-for n in 1 2 3 4 5 6; do
-  f="docs/reviews/phase-${n}.md"
-  if [ ! -f "$f" ]; then echo "phase-${n}: MISSING"
-  elif ! grep -q "no further improvements" "$f"; then echo "phase-${n}: NOT yet approved"; fi
-done
-test -f docs/reviews/v1.0.0-codex-review.md || echo "v1.0.0 review log: MISSING"
-```
-
-Final v1.0.0 verification: no lines should be printed.
-
-## 9. Packaging dry run
+## 8. Packaging dry run
 
 ```bash
 (cd cli && npm pack --dry-run)                                 # tarball OK
@@ -115,7 +101,7 @@ node -e 'JSON.parse(require("fs").readFileSync("hooks/hooks.json","utf8"));'
 
 **Do not run `npm publish` without explicit user approval.**
 
-## 10. Eval scaffold (optional, costs OAuth quota)
+## 9. Eval scaffold (optional, costs OAuth quota)
 
 ```bash
 node scripts/eval/run-skill-benchmark.mjs --iteration iteration-N --parallel 8 --budget-usd 1 --model sonnet

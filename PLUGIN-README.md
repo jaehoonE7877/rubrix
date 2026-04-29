@@ -28,7 +28,7 @@ IntentDrafted
               ↳ Failed → PlanDrafted (개선 루프, 이전 점수 초기화)
 ```
 
-상태 전이 표와 lock 불변식 전체는 [`docs/lifecycle-state-machine.md`](docs/lifecycle-state-machine.md) 참고.
+상태 enum과 락 불변식의 SSoT는 [`cli/schemas/rubrix.schema.json`](cli/schemas/rubrix.schema.json) (state enum + state별 lock 불변식 allOf 분기).
 
 ## Skills
 

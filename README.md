@@ -101,7 +101,7 @@ node cli/bin/rubrix.js validate examples/self-eval/rubrix.json
 node cli/bin/rubrix.js validate examples/ios-refactor/rubrix.json
 ```
 
-전체 검증 체크리스트는 [`VERIFICATION.md`](VERIFICATION.md), 상세 사용 가이드는 [`PLUGIN-README.md`](PLUGIN-README.md), lifecycle 상태 전이 표는 [`docs/lifecycle-state-machine.md`](docs/lifecycle-state-machine.md) 참고.
+전체 검증 체크리스트는 [`VERIFICATION.md`](VERIFICATION.md), 상세 사용 가이드는 [`PLUGIN-README.md`](PLUGIN-README.md) 참고. 라이프사이클 상태 enum과 락 불변식은 [`cli/schemas/rubrix.schema.json`](cli/schemas/rubrix.schema.json)이 SSoT.
 
 ## v1.1+ 로드맵
 

@@ -120,7 +120,7 @@
         "Passed",
         "Failed"
       ],
-      "description": "Lifecycle state. See docs/lifecycle-state-machine.md for transition rules."
+      "description": "Lifecycle state. Transition rules are codified by the allOf branches in this schema."
     },
     "locks": {
       "type": "object",
