@@ -60,6 +60,52 @@ function defaultContractPath(input: HookInput): string {
     : resolve(cwd, "rubrix.json");
 }
 
+// --- v1.0.1: humane lifecycle messages (RUB-5) ---
+
+type LockKey = "rubric" | "matrix" | "plan";
+type Locks = { rubric: boolean; matrix: boolean; plan: boolean };
+
+const LOCK_ORDER: ReadonlyArray<LockKey> = ["rubric", "matrix", "plan"];
+
+const SKILL_FOR_LOCK: Readonly<Record<LockKey, string>> = {
+  rubric: "/rubrix:rubric",
+  matrix: "/rubrix:matrix",
+  plan: "/rubrix:plan",
+};
+
+/** First lock that has not been acquired yet, in rubric → matrix → plan order. */
+function nextMissingLock(locks: Locks): LockKey | null {
+  for (const k of LOCK_ORDER) if (!locks[k]) return k;
+  return null;
+}
+
+/**
+ * Build the shared lifecycle context block.
+ * Three lines: state, lock chart with ✅/❌ and ← next marker, next skill.
+ * Used as `additionalContext` on every PreToolUse / UserPromptExpansion path.
+ */
+export function buildLifecycleContext(state: State, locks: Locks): string {
+  const next = nextMissingLock(locks);
+  const cell = (k: LockKey) => {
+    const mark = locks[k] ? "✅" : "❌";
+    return next === k ? `${k} ${mark} ← next` : `${k} ${mark}`;
+  };
+  const nextLine = next ? SKILL_FOR_LOCK[next] : "(all locked — proceed)";
+  return [
+    `[rubrix] state=${state}`,
+    `locks: ${cell("rubric")}  ${cell("matrix")}  ${cell("plan")}`,
+    `next: ${nextLine}`,
+  ].join("\n");
+}
+
+function reasonForToolBlocked(tool: string, missing: LockKey): string {
+  return `${tool} blocked: ${missing} is not yet locked. Run ${SKILL_FOR_LOCK[missing]} and lock it before editing.`;
+}
+
+function reasonForScoreBlocked(): string {
+  return `/rubrix:score blocked: plan is not yet locked. Run /rubrix:plan and lock it before scoring.`;
+}
+
 export function handleSessionStart(input: HookInput): HookDecision {
   const path = defaultContractPath(input);
   if (!existsSync(path)) {
@@ -80,11 +126,11 @@ export function handleSessionStart(input: HookInput): HookDecision {
 export function handleUserPromptExpansion(input: HookInput): HookDecision {
   const path = defaultContractPath(input);
   if (!existsSync(path)) return {};
-  let stateLine = "";
+  let ctx = "";
   let locksPlan: boolean | null = null;
   try {
     const c = loadContract(path);
-    stateLine = `[rubrix] current state: ${c.state}. locks: rubric=${c.locks.rubric} matrix=${c.locks.matrix} plan=${c.locks.plan}.`;
+    ctx = buildLifecycleContext(c.state, c.locks);
     locksPlan = c.locks.plan;
   } catch {
     return {};
@@ -93,11 +139,11 @@ export function handleUserPromptExpansion(input: HookInput): HookDecision {
   if (promptInvokesScore(prompt) && locksPlan === false) {
     return {
       decision: "block",
-      reason: `cannot /rubrix:score: locks.plan=false — run /rubrix:plan and lock first`,
-      additionalContext: stateLine,
+      reason: reasonForScoreBlocked(),
+      additionalContext: ctx,
     };
   }
-  return { additionalContext: stateLine };
+  return { additionalContext: ctx };
 }
 
 function targetsContract(input: HookInput, contractPath: string): boolean {
@@ -113,7 +159,7 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const path = defaultContractPath(input);
   if (!existsSync(path)) return { decision: "allow" };
   let state: State;
-  let locks: { rubric: boolean; matrix: boolean; plan: boolean };
+  let locks: Locks;
   try {
     const c = loadContract(path);
     state = c.state;
@@ -121,11 +167,12 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   } catch (e) {
     return { decision: "block", reason: `rubrix.json invalid: ${e instanceof Error ? e.message : String(e)}` };
   }
+  const ctx = buildLifecycleContext(state, locks);
   const tool = typeof input.tool_name === "string" ? input.tool_name : "";
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
   if (promptInvokesScore(prompt)) {
     if (!locks.plan) {
-      return { decision: "block", reason: `cannot /rubrix:score: locks.plan=false (state=${state}) — run /rubrix:plan and lock first` };
+      return { decision: "block", reason: reasonForScoreBlocked(), additionalContext: ctx };
     }
     return { decision: "allow" };
   }
@@ -134,13 +181,13 @@ export function handlePreToolUse(input: HookInput): HookDecision {
       return { decision: "allow", reason: "editing rubrix.json contract itself is exempt from code-edit gate" };
     }
     if (!locks.rubric) {
-      return { decision: "block", reason: `cannot use ${tool}: locks.rubric=false (state=${state}) — run /rubrix:rubric and lock first` };
+      return { decision: "block", reason: reasonForToolBlocked(tool, "rubric"), additionalContext: ctx };
     }
     if (!locks.matrix) {
-      return { decision: "block", reason: `cannot use ${tool}: locks.matrix=false (state=${state}) — run /rubrix:matrix and lock first` };
+      return { decision: "block", reason: reasonForToolBlocked(tool, "matrix"), additionalContext: ctx };
     }
     if (!locks.plan) {
-      return { decision: "block", reason: `cannot use ${tool}: locks.plan=false (state=${state}) — run /rubrix:plan and lock before implementing` };
+      return { decision: "block", reason: reasonForToolBlocked(tool, "plan"), additionalContext: ctx };
     }
   }
   return { decision: "allow" };

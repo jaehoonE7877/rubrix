@@ -13,7 +13,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(here, "../package.json"), "utf8")) as { version: string };
 
 const program = new Command();
-program.name("rubrix").description("Rubrix CLI: validate, gate, report, state, lock").version(pkg.version);
+program.name("rubrix").description("Rubrix CLI: validate, gate, report, state, lock, hook").version(pkg.version);
 
 program
   .command("validate <path>")

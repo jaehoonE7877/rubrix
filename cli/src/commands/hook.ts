@@ -9,15 +9,55 @@ import {
 
 export interface HookOptions {
   event: string;
+  /** Override the stdin read timeout (ms). Tests should pass a short value. */
+  readTimeoutMs?: number;
 }
 
-async function readStdin(): Promise<string> {
-  if (process.stdin.isTTY) return "";
+/**
+ * Default stdin read timeout (RUB-6).
+ *
+ * Hooks read JSON payloads from stdin. If the upstream caller (Claude Code,
+ * a CI wrapper, etc.) never closes stdin, the for-await loop hangs forever —
+ * and a hung hook stalls the user's session. 5 seconds is a generous safety-net
+ * (normal hooks complete in tens of ms) and lands well inside Claude Code's
+ * default 60s hook timeout, so we surface a graceful, message-controlled exit
+ * before Claude Code force-kills us.
+ */
+export const DEFAULT_READ_TIMEOUT_MS = 5_000;
+
+export class HookTimeoutError extends Error {
+  constructor(public readonly timeoutMs: number) {
+    super(`stdin read timed out after ${timeoutMs}ms`);
+    this.name = "HookTimeoutError";
+  }
+}
+
+async function readAllStdin(): Promise<string> {
   let data = "";
   for await (const chunk of process.stdin) {
     data += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
   }
   return data;
+}
+
+async function readStdin(timeoutMs: number): Promise<string> {
+  if (process.stdin.isTTY) return "";
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      readAllStdin(),
+      new Promise<string>((_, reject) => {
+        timer = setTimeout(() => reject(new HookTimeoutError(timeoutMs)), timeoutMs);
+        // Don't keep the event loop alive solely for this timer — the for-await
+        // on stdin keeps the loop alive on its own when actually hanging.
+        if (typeof (timer as { unref?: () => void }).unref === "function") {
+          (timer as { unref: () => void }).unref();
+        }
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 interface ParseResult {
@@ -84,6 +124,9 @@ export function emitUserPromptExpansion(decision: HookDecision): number {
   if (decision.decision === "block") {
     const reason = decision.reason ?? "rubrix UserPromptExpansion hook blocked prompt";
     process.stderr.write(reason + "\n");
+    if (decision.additionalContext) {
+      process.stderr.write(decision.additionalContext + "\n");
+    }
     return 2;
   }
   return emitContextOnly(decision);
@@ -105,6 +148,39 @@ function emitForEvent(event: HookEvent, decision: HookDecision): number {
   }
 }
 
+/**
+ * Event-specific fail-mode for stdin timeouts (RUB-6).
+ *
+ * - PreToolUse / Stop are lifecycle gates — fail-CLOSED so the gate isn't
+ *   bypassed by a stuck stdin.
+ * - UserPromptExpansion / SessionStart / PostToolUse / PostToolBatch /
+ *   SubagentStop are informational — fail-OPEN with a stderr warning so a
+ *   slow hook doesn't lock the user out of the session.
+ */
+function emitTimeoutFailure(event: HookEvent, err: HookTimeoutError): number {
+  switch (event) {
+    case "PreToolUse":
+      return emitPreToolUse({
+        decision: "block",
+        reason: `rubrix hook stdin timeout (${err.timeoutMs}ms) — refusing tool to preserve lifecycle gate`,
+      });
+    case "Stop":
+      return emitStop({
+        decision: "block",
+        reason: `rubrix Stop hook stdin timeout (${err.timeoutMs}ms) — blocking to force iteration`,
+      });
+    case "UserPromptExpansion":
+    case "SessionStart":
+    case "PostToolUse":
+    case "PostToolBatch":
+    case "SubagentStop":
+      process.stderr.write(
+        `[rubrix] hook ${event} stdin timeout (${err.timeoutMs}ms) — proceeding without contract context\n`,
+      );
+      return 0;
+  }
+}
+
 export async function hookCommand(opts: HookOptions): Promise<number> {
   if (!isHookEvent(opts.event)) {
     const reason = `unknown hook event: ${opts.event} (expected one of ${HOOK_EVENTS.join(", ")})`;
@@ -112,7 +188,16 @@ export async function hookCommand(opts: HookOptions): Promise<number> {
     return 2;
   }
   const event = opts.event as HookEvent;
-  const raw = await readStdin();
+  const timeoutMs = opts.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS;
+  let raw: string;
+  try {
+    raw = await readStdin(timeoutMs);
+  } catch (e) {
+    if (e instanceof HookTimeoutError) {
+      return emitTimeoutFailure(event, e);
+    }
+    throw e;
+  }
   const parsed = parseInput(raw);
   if (!parsed.ok) {
     const reason = `rubrix hook ${event}: ${parsed.error}`;

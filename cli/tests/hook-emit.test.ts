@@ -79,6 +79,20 @@ describe("emitPreToolUse — Claude Code hookSpecificOutput contract", () => {
     const payload = JSON.parse(io.stdoutBuf.trim());
     expect(payload.hookSpecificOutput.permissionDecision).toBe("allow");
   });
+
+  // RUB-5: additionalContext propagation through emit layer
+  it("forwards both permissionDecisionReason and additionalContext on block", () => {
+    const code = emitPreToolUse({
+      decision: "block",
+      reason: "Edit blocked: rubric is not yet locked. Run /rubrix:rubric and lock it before editing.",
+      additionalContext: "[rubrix] state=IntentDrafted\nlocks: rubric ❌ ← next  matrix ❌  plan ❌\nnext: /rubrix:rubric",
+    });
+    expect(code).toBe(0);
+    const payload = JSON.parse(io.stdoutBuf.trim());
+    expect(payload.hookSpecificOutput.permissionDecisionReason).toContain("rubric is not yet locked");
+    expect(payload.hookSpecificOutput.additionalContext).toContain("rubric ❌ ← next");
+    expect(payload.hookSpecificOutput.additionalContext).toContain("next: /rubrix:rubric");
+  });
 });
 
 describe("emitContextOnly — context events", () => {
@@ -150,7 +164,11 @@ describe("hookCommand integration — PreToolUse permissionDecision", () => {
     expect(code).toBe(0);
     const payload = JSON.parse(io.stdoutBuf.trim());
     expect(payload.hookSpecificOutput.permissionDecision).toBe("deny");
-    expect(payload.hookSpecificOutput.permissionDecisionReason).toContain("locks.plan=false");
+    expect(payload.hookSpecificOutput.permissionDecisionReason).toContain("plan is not yet locked");
+    expect(payload.hookSpecificOutput.permissionDecisionReason).toContain("/rubrix:plan");
+    // RUB-5: lifecycle additionalContext is forwarded on the wire
+    expect(payload.hookSpecificOutput.additionalContext).toContain("plan ❌ ← next");
+    expect(payload.hookSpecificOutput.additionalContext).toContain("next: /rubrix:plan");
   });
 
   it("allows Edit on PlanLocked with permissionDecision=allow", async () => {
@@ -221,8 +239,11 @@ describe("hookCommand integration — UserPromptExpansion blocks /rubrix:score b
     const code = await hookCommand({ event: "UserPromptExpansion" });
     expect(code).toBe(2);
     expect(io.stdoutBuf).toBe("");
-    expect(io.stderrBuf).toContain("/rubrix:score");
-    expect(io.stderrBuf).toContain("locks.plan=false");
+    expect(io.stderrBuf).toContain("/rubrix:score blocked");
+    expect(io.stderrBuf).toContain("plan is not yet locked");
+    // additionalContext (lifecycle chart) is also forwarded to stderr on block path (RUB-5)
+    expect(io.stderrBuf).toContain("locks: rubric");
+    expect(io.stderrBuf).toContain("next:");
   });
 
   it("exits 0 with state context when /rubrix:score runs after plan lock", async () => {
