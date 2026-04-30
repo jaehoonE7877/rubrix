@@ -26,7 +26,13 @@ function calibratedIntent(): RubrixContract {
     version: "0.1.0",
     intent: {
       summary: "x",
-      brief: { calibrated: true, ambition: "production" },
+      brief: {
+        calibrated: true,
+        project_type: "brownfield_feature",
+        situation: "internal_tool",
+        ambition: "production",
+        axis_depth: {},
+      },
     },
     state: "IntentDrafted",
     locks: { rubric: false, matrix: false, plan: false },

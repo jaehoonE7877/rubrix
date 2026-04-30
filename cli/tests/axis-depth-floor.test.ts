@@ -119,7 +119,8 @@ describe("axis-depth deep floor (Codex Q1: Option B)", () => {
     };
     const r = evaluateGate(c, {});
     expect(r.decision).toBe("pass");
-    const row = r.perCriterion[0];
+    expect(r.perCriterion).toHaveLength(1);
+    const row = r.perCriterion[0]!;
     expect(row.axis).toBeUndefined();
     expect(row.effectiveFloor).toBeUndefined();
   });

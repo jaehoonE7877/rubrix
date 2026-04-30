@@ -57,7 +57,7 @@
       },
       {
         "id": "pretooluse_gate_blocks",
-        "description": "PreToolUse hook returns hookSpecificOutput.permissionDecision=deny + exit 0 + stderr message when /rubrix:rubric is invoked while intent.brief.calibrated !== true and RUBRIX_SKIP_BRIEF !== '1'.",
+        "description": "PreToolUse hook returns hookSpecificOutput.permissionDecision=deny + hookSpecificOutput.permissionDecisionReason in stdout JSON + exit 0 when /rubrix:rubric is invoked while intent.brief.calibrated !== true and RUBRIX_SKIP_BRIEF !== '1'.",
         "weight": 0.15,
         "axis": "security",
         "verify": "vitest cli/tests/hook-brief-gate.test.ts (PR #3)"
@@ -114,7 +114,7 @@
       {
         "id": "row-gate-deny",
         "criterion": "pretooluse_gate_blocks",
-        "evidence_required": "Hook stdin fixture: tool_name='SlashCommand', prompt='/rubrix:rubric', contract has intent.brief.calibrated=false → stdout JSON has hookSpecificOutput.permissionDecision='deny', exit code 0, stderr message references /rubrix:brief. Same fixture with env RUBRIX_SKIP_BRIEF=1 → permissionDecision='allow'. brief calibrated=true → allow.",
+        "evidence_required": "Hook stdin fixture: tool_name='SlashCommand', prompt='/rubrix:rubric', contract has intent.brief.calibrated=false → stdout JSON has hookSpecificOutput.permissionDecision='deny' AND hookSpecificOutput.permissionDecisionReason referencing /rubrix:brief, exit code 0. Same fixture with env RUBRIX_SKIP_BRIEF=1 → permissionDecision='allow'. brief calibrated=true → allow.",
         "verify": "vitest cli/tests/hook-brief-gate.test.ts"
       },
       {
