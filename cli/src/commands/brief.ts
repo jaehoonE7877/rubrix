@@ -6,6 +6,7 @@ import {
   isAxisDepth,
   newCalibratedContract,
   resolveAxisDepth,
+  type CalibratedBriefInit,
 } from "../core/brief.ts";
 
 const PROJECT_TYPES = ["greenfield", "brownfield_refactor", "brownfield_feature", "infra", "doc"] as const;
@@ -33,7 +34,7 @@ export interface BriefGetOptions {
 
 export function briefInitCommand(opts: BriefInitOptions): number {
   try {
-    const brief = parseBriefOptions(opts);
+    const partial = parseBriefOptions(opts);
     if (existsSync(opts.path)) {
       const existing = loadContract(opts.path);
       if (existing.state !== "IntentDrafted") {
@@ -42,7 +43,26 @@ export function briefInitCommand(opts: BriefInitOptions): number {
         );
         return 3;
       }
-      existing.intent.brief = { calibrated: true, ...brief };
+      const merged: IntentBrief = {
+        calibrated: true,
+        project_type: partial.project_type ?? existing.intent.brief?.project_type,
+        situation: partial.situation ?? existing.intent.brief?.situation,
+        ambition: partial.ambition ?? existing.intent.brief?.ambition,
+        axis_depth: partial.axis_depth ?? existing.intent.brief?.axis_depth ?? {},
+        ...(partial.risk_modifiers !== undefined
+          ? { risk_modifiers: partial.risk_modifiers }
+          : existing.intent.brief?.risk_modifiers !== undefined
+            ? { risk_modifiers: existing.intent.brief.risk_modifiers }
+            : {}),
+      };
+      const missing = missingCalibratedFields(merged);
+      if (missing.length) {
+        process.stderr.write(
+          `brief init: cannot calibrate, missing required field(s): ${missing.join(", ")} (pass --${missing[0]?.replace("_", "-")} or run on a contract that already has them)\n`,
+        );
+        return 2;
+      }
+      existing.intent.brief = merged;
       if (opts.summary !== undefined) existing.intent.summary = opts.summary;
       if (opts.details !== undefined) existing.intent.details = opts.details;
       if (opts.owner !== undefined) existing.intent.owner = opts.owner;
@@ -54,9 +74,14 @@ export function briefInitCommand(opts: BriefInitOptions): number {
       process.stderr.write("brief init: --summary is required when creating a new contract\n");
       return 2;
     }
+    const calibrated = ensureCalibratedFields(partial);
+    if (typeof calibrated === "string") {
+      process.stderr.write(`brief init: ${calibrated}\n`);
+      return 2;
+    }
     const fresh = newCalibratedContract({
       summary: opts.summary,
-      brief,
+      brief: calibrated,
       details: opts.details,
       owner: opts.owner,
     });
@@ -67,6 +92,28 @@ export function briefInitCommand(opts: BriefInitOptions): number {
     process.stderr.write(formatErr(e));
     return e instanceof ContractError ? 2 : 1;
   }
+}
+
+function missingCalibratedFields(b: IntentBrief): string[] {
+  const missing: string[] = [];
+  if (b.project_type === undefined) missing.push("project_type");
+  if (b.situation === undefined) missing.push("situation");
+  if (b.ambition === undefined) missing.push("ambition");
+  if (b.axis_depth === undefined) missing.push("axis_depth");
+  return missing;
+}
+
+function ensureCalibratedFields(p: Omit<IntentBrief, "calibrated">): CalibratedBriefInit | string {
+  if (!p.project_type) return "--project-type is required when creating a new calibrated brief";
+  if (!p.situation) return "--situation is required when creating a new calibrated brief";
+  if (!p.ambition) return "--ambition is required when creating a new calibrated brief";
+  return {
+    project_type: p.project_type,
+    situation: p.situation,
+    ambition: p.ambition,
+    axis_depth: p.axis_depth ?? {},
+    ...(p.risk_modifiers !== undefined ? { risk_modifiers: p.risk_modifiers } : {}),
+  };
 }
 
 export function briefGetCommand(opts: BriefGetOptions): number {

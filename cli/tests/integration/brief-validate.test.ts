@@ -75,7 +75,13 @@ describe("validate brief warning", () => {
         version: "0.1.0",
         intent: {
           summary: "x",
-          brief: { calibrated: true, ambition: "production" },
+          brief: {
+            calibrated: true,
+            project_type: "brownfield_feature",
+            situation: "internal_tool",
+            ambition: "production",
+            axis_depth: {},
+          },
         },
         rubric: { threshold: 0.5, criteria: [{ id: "c", description: "d", weight: 1 }] },
         state: "RubricDrafted",
