@@ -1,21 +1,18 @@
 name: ✨ 기능 제안
-description: 새로운 기능, 개선, 또는 변경 제안을 남겨주세요.
+description: 새로운 기능, 개선, 또는 변경 제안.
 title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        제안 감사합니다.
-        먼저 [extensible-plan](https://github.com/jaehoonE7877/rubrix/blob/main/docs/extensible-plan.md)에 이미 계획된 항목인지 확인해주시면 좋습니다.
+        먼저 [extensible-plan](https://github.com/jaehoonE7877/rubrix/blob/main/docs/extensible-plan.md)에 이미 계획된 항목인지 확인해주세요.
 
   - type: textarea
     id: motivation
     attributes:
-      label: 배경 / 동기
-      description: |
-        어떤 상황에서 이 기능이 필요했나요? 현재 Rubrix로 무엇을 하기 어려운지 구체적으로 설명해주세요.
-      placeholder: 예) brownfield refactor 작업에서 axis_depth 외에 "regression risk" 축을 별도로 강제하고 싶습니다.
+      label: 어떤 문제를 해결하고 싶으신가요?
+      description: 현재 Rubrix로 무엇을 하기 어려운지 구체적으로 적어주세요.
     validations:
       required: true
 
@@ -23,50 +20,11 @@ body:
     id: proposal
     attributes:
       label: 제안 내용
-      description: 어떤 동작을 추가/변경하고 싶은지 적어주세요. CLI 옵션, schema 필드, hook 동작 등 구체적일수록 좋습니다.
+      description: 어떤 동작을 추가/변경하고 싶은지. CLI 옵션, schema 필드, hook 동작 등 구체적일수록 좋습니다.
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: 검토한 대안
-      description: 다른 접근 방식이나 워크어라운드를 시도해보셨다면 적어주세요.
-
-  - type: checkboxes
-    id: surface
-    attributes:
-      label: 영향 표면 (해당되는 항목 모두 선택)
-      options:
-        - label: CLI
-        - label: Skill / Agent
-        - label: Hook
-        - label: Schema (breaking 가능)
-        - label: 문서
-        - label: 외부 통합 (Claude Code marketplace, npm 등)
-
-  - type: dropdown
-    id: scope
-    attributes:
-      label: 변경 성격
-      multiple: false
-      options:
-        - additive (기존 동작 유지)
-        - breaking (기존 사용자에게 영향)
-        - 잘 모르겠음
-    validations:
-      required: true
-
-  - type: textarea
-    id: notes
-    attributes:
-      label: 추가 정보 (선택)
-      description: 참고 링크, 예시 contract, 유사 도구의 사례 등.
-
-  - type: checkboxes
-    id: confirm
-    attributes:
-      label: 제출 전 확인
-      options:
-        - label: extensible-plan과 기존 issue를 검색해 중복이 없는지 확인했습니다.
-          required: true
+      label: 검토한 대안 (선택)
