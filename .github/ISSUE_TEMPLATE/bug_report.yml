@@ -1,0 +1,118 @@
+name: 🐞 버그 리포트
+description: Rubrix CLI / skill / hook / schema 등에서 발견한 버그를 알려주세요.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        버그 리포트를 남겨주셔서 감사합니다.
+        아래 항목을 가능한 한 자세히 채워주시면 트리아지가 빨라집니다.
+        보안 관련 취약점은 공개 issue 대신 메일이나 Security Advisory로 알려주세요.
+
+  - type: input
+    id: summary
+    attributes:
+      label: 한 줄 요약
+      description: 무슨 일이 일어났는지 한 문장으로 요약해주세요.
+      placeholder: 예) `rubrix gate ./rubrix.json` 실행 시 axis_depth deep 축이 무시됩니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 재현 절차
+      description: |
+        문제를 재현할 수 있는 최소한의 절차를 적어주세요. 가능하면 명령어와 입력 파일까지 포함해주세요.
+      placeholder: |
+        1. `rubrix brief init ./rubrix.json --summary "..." --project-type brownfield_feature ...`
+        2. `rubrix lock rubric ./rubrix.json`
+        3. `rubrix gate ./rubrix.json`
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 동작
+      description: 어떤 동작이 일어났어야 하는지 적어주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+      description: 실제로 어떤 동작이 일어났는지, 에러 메시지 / 로그 / stderr 출력이 있다면 함께 붙여주세요.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: rubrix-version
+    attributes:
+      label: Rubrix 버전
+      description: "`rubrix --version` 또는 `.claude-plugin/plugin.json`의 version 필드"
+      placeholder: 예) 1.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js 버전
+      description: "`node --version` 결과"
+      placeholder: 예) v22.11.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 운영체제
+      multiple: false
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - 기타
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: surface
+    attributes:
+      label: 영향 범위 (해당되는 항목 모두 선택)
+      options:
+        - label: CLI (`rubrix validate | gate | report | state | lock | hook | brief`)
+        - label: Skill (`/rubrix:rubric` / `/rubrix:matrix` / `/rubrix:plan` / `/rubrix:score` / `/rubrix:brief`)
+        - label: Hook (PreToolUse / UserPromptExpansion / SessionStart / Stop ...)
+        - label: Schema (rubrix.schema.json) / contract validation
+        - label: 문서 (README / PLUGIN-README / VERIFICATION / extensible-plan)
+        - label: 잘 모르겠음
+
+  - type: textarea
+    id: contract
+    attributes:
+      label: rubrix.json 발췌 (선택)
+      description: |
+        문제 재현에 필요한 rubrix.json 일부를 붙여주세요. **민감한 정보는 반드시 제거**해주세요.
+      render: json
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 추가 정보 (선택)
+      description: 스크린샷, 관련 PR, 워크어라운드, 의심되는 원인 등 자유롭게 남겨주세요.
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 제출 전 확인
+      options:
+        - label: 최신 릴리스에서도 같은 문제가 발생하는지 확인했습니다.
+          required: true
+        - label: 비슷한 issue가 이미 등록되어 있는지 검색했습니다.
+          required: true
