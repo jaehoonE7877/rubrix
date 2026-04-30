@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   HOOK_EVENTS,
+  buildLifecycleContext,
   dispatch,
   handlePreToolUse,
   handleSessionStart,
   handleStop,
+  handleUserPromptExpansion,
   isHookEvent,
 } from "../src/hooks/handlers.ts";
 import type { RubrixContract } from "../src/core/contract.ts";
@@ -60,14 +62,15 @@ describe("hook event metadata", () => {
 });
 
 describe("PreToolUse blocking", () => {
-  it("blocks Edit when locks.rubric=false", () => {
+  it("blocks Edit when rubric not locked (humane reason)", () => {
     const { dir, path } = tmpContract(intentDrafted());
     const r = handlePreToolUse({ cwd: dir, contract_path: path, tool_name: "Edit" });
     expect(r.decision).toBe("block");
-    expect(r.reason).toContain("locks.rubric=false");
+    expect(r.reason).toContain("rubric is not yet locked");
+    expect(r.reason).toContain("/rubrix:rubric");
   });
 
-  it("blocks Write when locks.matrix=false (rubric locked)", () => {
+  it("blocks Write when matrix not locked (humane reason)", () => {
     const c = intentDrafted();
     c.rubric = { threshold: 0.5, criteria: [{ id: "c", description: "d", weight: 1 }] };
     c.state = "RubricLocked";
@@ -75,7 +78,8 @@ describe("PreToolUse blocking", () => {
     const { dir, path } = tmpContract(c);
     const r = handlePreToolUse({ cwd: dir, contract_path: path, tool_name: "Write" });
     expect(r.decision).toBe("block");
-    expect(r.reason).toContain("locks.matrix=false");
+    expect(r.reason).toContain("matrix is not yet locked");
+    expect(r.reason).toContain("/rubrix:matrix");
   });
 
   it("blocks Edit when plan is not locked, even after rubric+matrix are locked", () => {
@@ -84,7 +88,8 @@ describe("PreToolUse blocking", () => {
     const { dir, path } = tmpContract(c);
     const r = handlePreToolUse({ cwd: dir, contract_path: path, tool_name: "Edit" });
     expect(r.decision).toBe("block");
-    expect(r.reason).toContain("locks.plan=false");
+    expect(r.reason).toContain("plan is not yet locked");
+    expect(r.reason).toContain("/rubrix:plan");
   });
 
   it("allows Edit only after all three locks (rubric, matrix, plan) are true", () => {
@@ -99,7 +104,8 @@ describe("PreToolUse blocking", () => {
     const { dir, path } = tmpContract(c);
     const r = handlePreToolUse({ cwd: dir, contract_path: path, tool_name: "SlashCommand", prompt: "/score" });
     expect(r.decision).toBe("block");
-    expect(r.reason).toContain("locks.plan=false");
+    expect(r.reason).toContain("/rubrix:score blocked");
+    expect(r.reason).toContain("plan is not yet locked");
   });
 
   it("allows /score when plan is locked", () => {
@@ -140,6 +146,82 @@ describe("PreToolUse blocking", () => {
       tool_input: { file_path: join(dir, "src/main.ts") },
     });
     expect(r.decision).toBe("block");
+  });
+});
+
+describe("RUB-5 acceptance — humane lifecycle messages on 3 block paths", () => {
+  // Acceptance criteria (Notion v1.0.1 Item 1):
+  // 1. permissionDecisionReason has no `locks.<key>=false` API syntax
+  // 2. permissionDecisionReason is one humane sentence naming the missing lock
+  // 3. additionalContext has rubric/matrix/plan ✅/❌ chart
+  // 4. additionalContext has next skill name (e.g., /rubrix:rubric)
+  // 5. PreToolUse Edit/Write, PreToolUse score, UserPromptExpansion score share the same format
+
+  const API_SYNTAX_RE = /locks\.[a-z]+=(true|false)/;
+
+  it("buildLifecycleContext renders state, ✅/❌ chart, and next skill", () => {
+    const ctx = buildLifecycleContext("RubricLocked", { rubric: true, matrix: false, plan: false });
+    expect(ctx).toContain("state=RubricLocked");
+    expect(ctx).toContain("rubric ✅");
+    expect(ctx).toContain("matrix ❌ ← next");
+    expect(ctx).toContain("plan ❌");
+    expect(ctx).toContain("next: /rubrix:matrix");
+  });
+
+  it("PreToolUse Edit block: humane reason + lifecycle additionalContext", () => {
+    const { dir, path } = tmpContract(intentDrafted());
+    const r = handlePreToolUse({ cwd: dir, contract_path: path, tool_name: "Edit" });
+    expect(r.decision).toBe("block");
+    expect(r.reason).not.toMatch(API_SYNTAX_RE);
+    expect(r.reason).toContain("Edit blocked");
+    expect(r.reason).toContain("rubric is not yet locked");
+    expect(r.reason).toContain("/rubrix:rubric");
+    expect(r.additionalContext).toBeDefined();
+    expect(r.additionalContext).toContain("rubric ❌ ← next");
+    expect(r.additionalContext).toContain("matrix ❌");
+    expect(r.additionalContext).toContain("plan ❌");
+    expect(r.additionalContext).toContain("next: /rubrix:rubric");
+  });
+
+  it("PreToolUse score block: humane reason + lifecycle additionalContext", () => {
+    const c = fullyLocked("MatrixLocked");
+    c.locks.plan = false;
+    const { dir, path } = tmpContract(c);
+    const r = handlePreToolUse({ cwd: dir, contract_path: path, tool_name: "SlashCommand", prompt: "/rubrix:score" });
+    expect(r.decision).toBe("block");
+    expect(r.reason).not.toMatch(API_SYNTAX_RE);
+    expect(r.reason).toContain("/rubrix:score blocked");
+    expect(r.reason).toContain("plan is not yet locked");
+    expect(r.additionalContext).toBeDefined();
+    expect(r.additionalContext).toContain("rubric ✅");
+    expect(r.additionalContext).toContain("matrix ✅");
+    expect(r.additionalContext).toContain("plan ❌ ← next");
+    expect(r.additionalContext).toContain("next: /rubrix:plan");
+  });
+
+  it("UserPromptExpansion score block: humane reason + lifecycle additionalContext (same format)", () => {
+    const c = fullyLocked("PlanDrafted");
+    c.locks.plan = false;
+    const { dir, path } = tmpContract(c);
+    const r = handleUserPromptExpansion({ cwd: dir, contract_path: path, prompt: "/rubrix:score" });
+    expect(r.decision).toBe("block");
+    expect(r.reason).not.toMatch(API_SYNTAX_RE);
+    expect(r.reason).toContain("/rubrix:score blocked");
+    expect(r.reason).toContain("plan is not yet locked");
+    expect(r.additionalContext).toBeDefined();
+    expect(r.additionalContext).toContain("plan ❌ ← next");
+    expect(r.additionalContext).toContain("next: /rubrix:plan");
+  });
+
+  it("UserPromptExpansion non-block: lifecycle additionalContext still uses humane format", () => {
+    const { dir, path } = tmpContract(fullyLocked("PlanLocked"));
+    const r = handleUserPromptExpansion({ cwd: dir, contract_path: path, prompt: "hello" });
+    expect(r.decision).toBeUndefined();
+    expect(r.additionalContext).not.toMatch(API_SYNTAX_RE);
+    expect(r.additionalContext).toContain("rubric ✅");
+    expect(r.additionalContext).toContain("matrix ✅");
+    expect(r.additionalContext).toContain("plan ✅");
+    expect(r.additionalContext).toContain("(all locked — proceed)");
   });
 });
 

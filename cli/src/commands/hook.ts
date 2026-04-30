@@ -84,6 +84,9 @@ export function emitUserPromptExpansion(decision: HookDecision): number {
   if (decision.decision === "block") {
     const reason = decision.reason ?? "rubrix UserPromptExpansion hook blocked prompt";
     process.stderr.write(reason + "\n");
+    if (decision.additionalContext) {
+      process.stderr.write(decision.additionalContext + "\n");
+    }
     return 2;
   }
   return emitContextOnly(decision);
