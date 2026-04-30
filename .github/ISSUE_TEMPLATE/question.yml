@@ -1,0 +1,41 @@
+name: ❓ 질문 / 사용 문의
+description: 사용 방법, 동작 이해, 모범 사례 등에 대한 질문.
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rubrix 사용 중 막히는 부분이 있으면 편하게 남겨주세요.
+        가능하면 PLUGIN-README와 extensible-plan을 먼저 확인해주시면 빠르게 답변할 수 있습니다.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 질문 내용
+      description: 무엇이 궁금한지 구체적으로 적어주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: 시도한 것 (선택)
+      description: 어떤 명령/문서/설정을 시도해봤는지 적어주시면 더 정확한 답을 드릴 수 있습니다.
+      render: bash
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 사용 환경 / 컨텍스트 (선택)
+      description: 어떤 프로젝트/상황에서 Rubrix를 쓰고 있는지 간단히 알려주세요.
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 제출 전 확인
+      options:
+        - label: PLUGIN-README와 extensible-plan에서 답을 찾지 못했습니다.
+          required: true
+        - label: 동일한 질문이 이미 등록되어 있는지 검색했습니다.
+          required: true
