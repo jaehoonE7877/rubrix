@@ -26,8 +26,31 @@ export function hashArtifact(contract: RubrixContract, key: ArtifactKey): string
   if (body === undefined) {
     throw new Error(`cannot hash missing artifact: ${key}`);
   }
-  const canonical = canonicalize(stripClarity(body));
+  const canonical = canonicalize({
+    key,
+    body: stripClarity(body),
+    context: scoringContext(contract, key),
+  });
   return createHash("sha256").update(canonical).digest("hex");
+}
+
+function scoringContext(contract: RubrixContract, key: ArtifactKey): unknown {
+  switch (key) {
+    case "rubric":
+      return {
+        axis_depth: contract.intent.brief?.axis_depth ?? null,
+        ambition: contract.intent.brief?.ambition ?? null,
+        calibrated: contract.intent.brief?.calibrated ?? false,
+      };
+    case "matrix":
+      return {
+        rubric_criterion_ids: (contract.rubric?.criteria ?? []).map((c) => c.id),
+      };
+    case "plan":
+      return {
+        matrix_row_ids: (contract.matrix?.rows ?? []).map((r) => r.id),
+      };
+  }
 }
 
 function stripClarity<T extends { clarity?: unknown }>(body: T): Omit<T, "clarity"> {

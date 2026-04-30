@@ -143,7 +143,7 @@
       ],
       "scored_at": "2026-04-30T17:38:05.902Z",
       "scorer_version": "clarity-scorer/1.0",
-      "artifact_hash": "cec7fc6e9689698527366d0c16452d2830cc17d4d69b18ab208d7ce80449e35d",
+      "artifact_hash": "02ead538380f1c1aa89407bbac242e25be9d1ade7c6c370f61d1621b4193766b",
       "forced": false
     }
   },
@@ -240,7 +240,7 @@
       ],
       "scored_at": "2026-04-30T17:39:18.537Z",
       "scorer_version": "clarity-scorer/1.0",
-      "artifact_hash": "50681eb63b07217477369703d395f188d3805c25400ef8fb118c8725c2ac00c1",
+      "artifact_hash": "ce661926428476d4655cc535a282b0fc567a6088d9de7bbb01141fb0de067f32",
       "forced": false
     }
   },

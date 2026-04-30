@@ -33,7 +33,7 @@ Return ONLY a JSON object. No prose, no markdown fences, no explanation.
 - `deductions[].weight` ∈ (0, 1]. Severity tier: vague=0.05–0.15, missing=0.10, unmeasurable=0.15, dangling=0.20, uncovered=0.20.
 - `deductions[].message` MUST be actionable: state which `<key>` field is at fault and what would fix it. Example: "criterion `c1` description is 18 chars; expand to ≥ 60 chars naming the success condition".
 - `scorer_version` MUST be `"clarity-scorer/1.0"` until the policy changes (caching depends on this exact string; bumps invalidate the cache).
-- `artifact_hash` MUST be the 64-char hex SHA-256 of the canonical (sorted-keys JSON, with any pre-existing `clarity` stripped) of the artifact body — the CLI computes the same hash and rejects mismatches.
+- `artifact_hash` MUST be the 64-char hex SHA-256 of `canonicalize({ key, body, context })` where `body` is the artifact body with any pre-existing `clarity` stripped, and `context` carries every other contract field that influences scoring (rubric → `intent.brief.{calibrated,ambition,axis_depth}`; matrix → ordered list of `rubric.criteria[].id`; plan → ordered list of `matrix.rows[].id`). Two contracts that score differently MUST yield different hashes — the CLI computes the identical hash and rejects mismatches.
 
 ## Per-axis weighting
 
