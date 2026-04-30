@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0",
+  "release": "v1.1.0",
+  "tracking": {
+    "parent": "RUB-9",
+    "subIssues": ["RUB-15", "RUB-16", "RUB-17"],
+    "branch": "release/v1.1"
+  },
+  "steps": [
+    {
+      "id": "pr1-schema-cli",
+      "issue": "RUB-15",
+      "branch": "feat/v1.1-schema-cli",
+      "produces": "intent.brief schema + rubrix brief init/get + validate warning + bootstrap rubrix.json",
+      "covers": []
+    },
+    {
+      "id": "pr2-skill-agent",
+      "issue": "RUB-16",
+      "branch": "feat/v1.1-skill-agent",
+      "produces": "/rubrix:brief skill + brief-interviewer agent + dogfood IntentDrafted -> MatrixLocked",
+      "covers": []
+    },
+    {
+      "id": "pr3-hook-scoring",
+      "issue": "RUB-17",
+      "branch": "feat/v1.1-hook-scoring",
+      "produces": "PreToolUse brief gate + axis_depth floor + report changes + version bump 1.1.0 + dogfood Passed",
+      "covers": []
+    }
+  ]
+}
