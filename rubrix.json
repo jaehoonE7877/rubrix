@@ -39,6 +39,7 @@
         "id": "clarity_type_exported",
         "description": "cli/src/core/contract.ts exports Clarity, ClarityDeduction, ClarityDeductionCode, and ArtifactKey types; rubric/matrix/plan TypeScript interfaces gain optional clarity?: Clarity. Existing v1.0/v1.1 type assignability for fixtures (no clarity) preserved.",
         "weight": 0.07,
+        "floor": 0.7,
         "axis": "correctness",
         "verify": "tsc --noEmit (transitively via vitest tsx loader) + manual review"
       },
@@ -46,35 +47,54 @@
         "id": "semver_version_helper",
         "description": "cli/src/core/version.ts provides parseVersion, compareVersions, isAtLeast, and isV12Plus(c). isV12Plus returns true for '1.2.0' and '1.5.0', false for '0.1.0' (current dogfood baseline) and '1.1.99'. Invalid version strings yield isV12Plus=false (no throw at the boundary).",
         "weight": 0.08,
+        "floor": 0.7,
         "axis": "correctness",
         "verify": "vitest cli/tests/clarity-threshold.test.ts (covers via resolveClarityThreshold) + targeted module-level tests in PR #2 if needed"
       },
       {
         "id": "threshold_lookup_axis_depth",
         "description": "resolveClarityThreshold(c, key, opts) returns base{rubric:0.75,matrix:0.80,plan:0.70} adjusted by max-modifier across all 5 axes (deep=+0.10, standard=0, light=-0.10). Override (CLI flag) takes precedence over axis_depth, clamped to [0,1]. RUBRIX_SKIP_BRIEF=1 and uncalibrated brief fall back to standard. ambition=demo forces all-light.",
-        "weight": 0.10,
+        "weight": 0.1,
         "floor": 0.7,
         "axis": "correctness",
         "verify": "vitest cli/tests/clarity-threshold.test.ts (8 tests)"
       },
       {
         "id": "score_clarity_read_only",
-        "description": "rubrix score-clarity <key> <path> emits a JSON object {artifact, artifact_hash, threshold, threshold_policy_version, scorer_version, score:null, deductions:[], scored_at, note} on stdout. Exit codes: 0 success, 2 invalid key/contract, 3 artifact missing in contract. Crucially: rubrix.json byte content is unchanged after the command runs (read-only contract).",
+        "description": "rubrix score-clarity <key> <path> emits a JSON object {artifact, artifact_hash, threshold, threshold_policy_version, scorer_version, score, deductions, scored_at, ok, scorer_active} on stdout. Exit codes: 0 success, 2 invalid key/contract, 3 artifact missing. Crucially: rubrix.json byte content is unchanged after the command runs (read-only contract). v1.0/v1.1 contracts return scorer_active=false with score=1 (read-compat).",
         "weight": 0.11,
+        "floor": 0.7,
         "axis": "security",
-        "verify": "vitest cli/tests/score-clarity.test.ts (7 tests, including byte-equivalence on rubrix.json)"
+        "verify": "vitest cli/tests/score-clarity.test.ts"
       },
       {
         "id": "score_clarity_hash_deterministic",
-        "description": "Two consecutive `score-clarity rubric <path>` invocations on the same input emit the same artifact_hash (SHA-256 over canonical, sorted-keys JSON of the artifact body, with any pre-existing clarity stripped). Threshold reflects --threshold override and axis_depth.",
-        "weight": 0.10,
+        "description": "Two consecutive `score-clarity rubric <path>` invocations on the same input emit the same artifact_hash (SHA-256 over canonical, sorted-keys JSON of the artifact body, with any pre-existing clarity stripped) and the same deductions in identical order. Threshold reflects --threshold override and axis_depth.",
+        "weight": 0.05,
+        "floor": 0.7,
         "axis": "correctness",
-        "verify": "vitest cli/tests/score-clarity.test.ts -t 'byte-equivalent'"
+        "verify": "vitest cli/tests/score-clarity.test.ts -t 'byte-equivalent' + cli/tests/integration/clarity-determinism.test.ts"
+      },
+      {
+        "id": "clarity_scorer_stub_deterministic",
+        "description": "(PR #2) cli/src/core/clarity.ts:scoreClarity is a deterministic heuristic stub that yields the same score and ordered deductions for the same artifact body. Heuristics: short text (<60 chars) → vague_description weight 0.10; vague tokens (good/well/잘/좋은/적절/충분/...) → vague_description weight 0.05; missing verify → missing_evidence weight 0.10; rubric criterion with axis tagged deep but no floor → unmeasurable_floor weight 0.15; matrix row referencing unknown rubric id → dangling_reference weight 0.20; uncovered axis/criterion/row → uncovered_axis weight 0.20. Sorted by code (vague→missing→unmeasurable→dangling→uncovered) then message. score = max(0, 1 − Σ weights), rounded to 4 decimals. scorer_version = clarity-scorer/1.0.",
+        "weight": 0.05,
+        "floor": 0.7,
+        "axis": "correctness",
+        "verify": "vitest cli/tests/clarity-scorer.test.ts"
+      },
+      {
+        "id": "lock_v12_clarity_gate",
+        "description": "(PR #2) rubrix lock <key> <path> on a contract with version >= 1.2.0 calls scoreClarity after integrity checks. On score < threshold the command exits 3 and prints `[code] message (weight)` lines on stderr without persisting clarity or transitioning state. On score >= threshold the command writes c[key].clarity = result.clarity (forced=false) before transitioning to *Locked. v1.0/v1.1 contracts (version < 1.2.0) skip the gate entirely (read-compat).",
+        "weight": 0.05,
+        "floor": 0.7,
+        "axis": "security",
+        "verify": "vitest cli/tests/integration/lock-clarity-gate.test.ts cli/tests/integration/clarity-determinism.test.ts"
       },
       {
         "id": "validate_v12_enforcement",
         "description": "rubrix validate on a v1.2 contract (version >= 1.2.0) at state ∈ {RubricLocked, MatrixDrafted, MatrixLocked, PlanDrafted, PlanLocked, Scoring, Passed, Failed} fails with a v1.2-specific error if any locked artifact is missing clarity, or if clarity.score < clarity.threshold and clarity.forced!==true. forced=true with forced_at + force_reason validates as an audited bypass.",
-        "weight": 0.10,
+        "weight": 0.05,
         "floor": 0.7,
         "axis": "security",
         "verify": "vitest cli/tests/integration/clarity-version-gate.test.ts (7 tests)"
@@ -82,7 +102,7 @@
       {
         "id": "clarity_invariant_uniform_paths",
         "description": "(codex review P2 follow-up) The v1.2 clarity invariant is enforced uniformly across every code path that trusts locks: rubrix validate, rubrix gate (refuses to evaluate when invariant is breached, exit 2), PreToolUse hook (blocks code-edits and /rubrix:score on a v1.2 contract missing clarity, while still allowing edits to rubrix.json itself so users can fix it), and UserPromptExpansion. Logic lives in cli/src/core/clarity-gate.ts (checkClarityInvariants + firstClarityViolation) and is consumed by validate.ts, gate.ts, and hooks/handlers.ts.",
-        "weight": 0.10,
+        "weight": 0.1,
         "floor": 0.7,
         "axis": "security",
         "verify": "vitest cli/tests/clarity-gate.test.ts cli/tests/integration/clarity-hook-gate.test.ts"
@@ -104,17 +124,130 @@
       },
       {
         "id": "tests_green_no_regression",
-        "description": "All 203 vitest tests pass (173 baseline preserved + 30 new across clarity-schema, clarity-threshold, score-clarity, integration/clarity-version-gate). No skipped or pending tests introduced. CLI, schema, and AJV validator caches behave correctly under repeated invocations.",
+        "description": "All vitest tests pass (173 baseline preserved + 44 PR #1 tests across clarity-schema, clarity-threshold, score-clarity, integration/clarity-version-gate, clarity-gate, integration/clarity-hook-gate). No skipped or pending tests introduced. CLI, schema, and AJV validator caches behave correctly under repeated invocations.",
         "weight": 0.05,
+        "floor": 0.7,
         "axis": "correctness",
         "verify": "cd cli && npm test"
       }
-    ]
+    ],
+    "clarity": {
+      "score": 0.95,
+      "threshold": 0.85,
+      "deductions": [
+        {
+          "code": "vague_description",
+          "message": "criterion `clarity_scorer_stub_deterministic` description uses vague language; replace generic words with measurable terms",
+          "weight": 0.05
+        }
+      ],
+      "scored_at": "2026-04-30T17:38:05.902Z",
+      "scorer_version": "clarity-scorer/1.0",
+      "artifact_hash": "cec7fc6e9689698527366d0c16452d2830cc17d4d69b18ab208d7ce80449e35d",
+      "forced": false
+    }
   },
-  "state": "RubricDrafted",
+  "matrix": {
+    "rows": [
+      {
+        "id": "row-schema-clarity-additive",
+        "criterion": "schema_clarity_additive",
+        "evidence_required": "AJV validation of cli/schemas/rubrix.schema.json: (a) accepts $defs.Clarity references on rubric/matrix/plan; (b) rejects clarity.score>1, deduction.code outside enum, forced=true without forced_at+force_reason, artifact_hash not 64-hex; (c) v1.0/v1.1 fixtures (examples/self-eval, examples/ios-refactor, repo-root pre-v1.2) keep validating clean.",
+        "verify": "vitest cli/tests/clarity-schema.test.ts"
+      },
+      {
+        "id": "row-clarity-type-exported",
+        "criterion": "clarity_type_exported",
+        "evidence_required": "TypeScript type-check via tsx loader passes for cli/src/core/contract.ts exports (Clarity, ClarityDeduction, ClarityDeductionCode, ArtifactKey) and rubric/matrix/plan optional clarity?: Clarity. v1.0/v1.1 fixtures still type-assignable as RubrixContract without clarity field.",
+        "verify": "vitest (transitive type-check) + manual review of cli/src/core/contract.ts"
+      },
+      {
+        "id": "row-semver-version-helper",
+        "criterion": "semver_version_helper",
+        "evidence_required": "Direct calls to parseVersion('1.2.0'), compareVersions('1.2.0','1.1.99'), isAtLeast('1.2.0','1.2.0'), isV12Plus({version:'0.1.0'}), isV12Plus({version:'1.2.0'}), and isV12Plus({version:'not-a-version'}) all produce expected boolean / numeric results without throwing at the boundary.",
+        "verify": "vitest cli/tests/clarity-threshold.test.ts (covers via resolveClarityThreshold) + cli/src/core/version.ts module review"
+      },
+      {
+        "id": "row-threshold-lookup",
+        "criterion": "threshold_lookup_axis_depth",
+        "evidence_required": "8 vitest assertions in clarity-threshold.test.ts cover: standard fallback (base unchanged), one-deep axis raises by +0.10, multiple-deep axes still cap at +0.10 (max not sum), all-light lowers by 0.10, override > axis_depth, override clamped to [0,1], RUBRIX_SKIP_BRIEF=1 fallback to standard, uncalibrated brief fallback to standard.",
+        "verify": "vitest cli/tests/clarity-threshold.test.ts"
+      },
+      {
+        "id": "row-score-clarity-read-only",
+        "criterion": "score_clarity_read_only",
+        "evidence_required": "vitest score-clarity.test.ts covers: invalid key → exit 2; missing artifact → exit 3; valid v1.2 input → JSON with numeric score, scorer_active=true, scorer_version='clarity-scorer/1.0'; v1.0 contract → scorer_active=false, score=1; rubrix.json byte-equivalent before/after invocation; --threshold override visible; axis_depth.deep raises threshold to 0.85 for rubric.",
+        "verify": "vitest cli/tests/score-clarity.test.ts"
+      },
+      {
+        "id": "row-score-clarity-deterministic",
+        "criterion": "score_clarity_hash_deterministic",
+        "evidence_required": "Two consecutive scoreClarityCommand invocations on identical contract produce equal artifact_hash and equal ordered deductions[].code (deterministic). Independently verified via cli/tests/integration/clarity-determinism.test.ts which runs scoreClarity twice and asserts byte-equivalent JSON.",
+        "verify": "vitest cli/tests/score-clarity.test.ts -t 'byte-equivalent' + cli/tests/integration/clarity-determinism.test.ts"
+      },
+      {
+        "id": "row-clarity-scorer-stub",
+        "criterion": "clarity_scorer_stub_deterministic",
+        "evidence_required": "clarity-scorer.test.ts asserts: vague tokens trigger vague_description; description below 60 chars triggers vague_description; missing verify triggers missing_evidence; deep-axis criterion without floor triggers unmeasurable_floor; matrix dangling reference triggers dangling_reference; uncovered axis/criterion/row triggers uncovered_axis. Deductions are sorted by code then message; score = max(0, 1 − Σ weights), rounded to 4 decimals.",
+        "verify": "vitest cli/tests/clarity-scorer.test.ts"
+      },
+      {
+        "id": "row-lock-v12-gate",
+        "criterion": "lock_v12_clarity_gate",
+        "evidence_required": "integration/lock-clarity-gate.test.ts asserts: vague v1.2 rubric → exit 3 + deductions on stderr + locks.rubric stays false + state stays RubricDrafted + clarity not persisted. Well-formed v1.2 rubric → exit 0 + locks.rubric=true + state=RubricLocked + c.rubric.clarity persisted with forced=false. v1.0 rubric (version 0.1.0) → scorer skipped, lock proceeds as before.",
+        "verify": "vitest cli/tests/integration/lock-clarity-gate.test.ts cli/tests/integration/clarity-determinism.test.ts"
+      },
+      {
+        "id": "row-validate-v12",
+        "criterion": "validate_v12_enforcement",
+        "evidence_required": "integration/clarity-version-gate.test.ts asserts: v1.0/v1.1 PlanLocked w/o clarity → valid; v1.2 RubricLocked w/o rubric.clarity → fail with 'v1.2 contract requires rubric.clarity'; v1.2 PlanLocked surfaces violations on every locked artifact; v1.2 score<threshold + forced=false → fail with 'lock should have refused'; v1.2 score<threshold + forced=true + force_reason → audited bypass passes.",
+        "verify": "vitest cli/tests/integration/clarity-version-gate.test.ts"
+      },
+      {
+        "id": "row-clarity-uniform",
+        "criterion": "clarity_invariant_uniform_paths",
+        "evidence_required": "integration/clarity-hook-gate.test.ts asserts: PreToolUse blocks Edit on v1.2 PlanLocked w/o plan.clarity; PreToolUse still allows Edit on rubrix.json itself (escape hatch); PreToolUse blocks /rubrix:score; UserPromptExpansion mirrors block on /rubrix:score; v1.0 PlanLocked w/o clarity unaffected; gateCommand on v1.2 Scoring + missing clarity → exit 2 + 'v1.2 clarity invariant'; gateCommand on v1.0 Scoring → normal evaluation.",
+        "verify": "vitest cli/tests/clarity-gate.test.ts cli/tests/integration/clarity-hook-gate.test.ts"
+      },
+      {
+        "id": "row-bc-v10-v11",
+        "criterion": "backward_compat_v10_v11",
+        "evidence_required": "Manual rubrix validate examples/self-eval/rubrix.json and examples/ios-refactor/rubrix.json both exit 0 (warning only on ios-refactor for missing brief; no error). 173-test baseline (pre-v1.2) all green. v1.0 fixtures untouched on disk.",
+        "verify": "manual `node cli/bin/rubrix.js validate examples/*/rubrix.json` + cli/tests baseline preserved"
+      },
+      {
+        "id": "row-cli-registration",
+        "criterion": "cli_registration_score_clarity",
+        "evidence_required": "Direct CLI invocation `node cli/bin/rubrix.js score-clarity rubric ./rubrix.json` exits 0 with JSON on stdout. `--threshold abc` (non-numeric) throws at commander parse time before scoreClarityCommand runs. `--json` flag accepted (default JSON output preserved). `score-clarity bogus ./rubrix.json` returns exit 2.",
+        "verify": "manual: node cli/bin/rubrix.js score-clarity rubric ./rubrix.json"
+      },
+      {
+        "id": "row-tests-green",
+        "criterion": "tests_green_no_regression",
+        "evidence_required": "`cd cli && npm test` (vitest) reports 0 failures and 0 skipped tests. Test file count = 24+ and total tests >= 217 (PR #1 baseline). PR #2 adds clarity-scorer.test.ts and lock-clarity-gate / clarity-determinism integration tests on top. Snapshot of stdout includes 'Test Files' and 'Tests' summary lines with no 'failed' counts.",
+        "verify": "cd cli && npm test"
+      }
+    ],
+    "clarity": {
+      "score": 0.95,
+      "threshold": 0.9,
+      "deductions": [
+        {
+          "code": "vague_description",
+          "message": "matrix row `row-lock-v12-gate` evidence_required uses vague language",
+          "weight": 0.05
+        }
+      ],
+      "scored_at": "2026-04-30T17:39:18.537Z",
+      "scorer_version": "clarity-scorer/1.0",
+      "artifact_hash": "50681eb63b07217477369703d395f188d3805c25400ef8fb118c8725c2ac00c1",
+      "forced": false
+    }
+  },
+  "state": "MatrixLocked",
   "locks": {
-    "rubric": false,
-    "matrix": false,
+    "rubric": true,
+    "matrix": true,
     "plan": false
   }
 }

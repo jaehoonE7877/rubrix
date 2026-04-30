@@ -1,6 +1,7 @@
 import { ContractError, loadContract, type ArtifactKey } from "../core/contract.ts";
-import { hashArtifact } from "../core/clarity.ts";
+import { hashArtifact, scoreClarity, SCORER_VERSION } from "../core/clarity.ts";
 import { resolveClarityThreshold, THRESHOLD_POLICY_VERSION } from "../core/brief.ts";
+import { isV12Plus } from "../core/version.ts";
 
 const ARTIFACT_KEYS: ReadonlyArray<ArtifactKey> = ["rubric", "matrix", "plan"];
 
@@ -18,9 +19,11 @@ export interface ScoreClarityOutput {
   threshold: number;
   threshold_policy_version: string;
   scorer_version: string;
-  score: number | null;
+  score: number;
   deductions: Array<{ code: string; message: string; weight: number }>;
   scored_at: string;
+  ok: boolean;
+  scorer_active: boolean;
   note?: string;
 }
 
@@ -52,18 +55,37 @@ export function scoreClarityCommand(opts: ScoreClarityOptions): number {
     env: opts.env,
   });
 
-  const output: ScoreClarityOutput = {
-    artifact: key,
-    artifact_hash: hashArtifact(contract, key),
-    threshold,
-    threshold_policy_version: THRESHOLD_POLICY_VERSION,
-    scorer_version: "placeholder/1.0",
-    score: null,
-    deductions: [],
-    scored_at: new Date().toISOString(),
-    note: "v1.2/PR #1: scorer not yet wired — placeholder hash + threshold only. Real scoring lands in v1.2/PR #2.",
-  };
+  if (!isV12Plus(contract)) {
+    const out: ScoreClarityOutput = {
+      artifact: key,
+      artifact_hash: hashArtifact(contract, key),
+      threshold,
+      threshold_policy_version: THRESHOLD_POLICY_VERSION,
+      scorer_version: SCORER_VERSION,
+      score: 1,
+      deductions: [],
+      scored_at: new Date().toISOString(),
+      ok: true,
+      scorer_active: false,
+      note: "contract version < 1.2.0; clarity gate is inactive (read-compat). Bump version to 1.2.0 to engage scoring.",
+    };
+    process.stdout.write(JSON.stringify(out, null, 2) + "\n");
+    return 0;
+  }
 
-  process.stdout.write(JSON.stringify(output, null, 2) + "\n");
+  const result = scoreClarity({ contract, key, threshold });
+  const out: ScoreClarityOutput = {
+    artifact: key,
+    artifact_hash: result.clarity.artifact_hash,
+    threshold: result.clarity.threshold,
+    threshold_policy_version: THRESHOLD_POLICY_VERSION,
+    scorer_version: result.clarity.scorer_version,
+    score: result.clarity.score,
+    deductions: result.clarity.deductions,
+    scored_at: result.clarity.scored_at,
+    ok: result.ok,
+    scorer_active: true,
+  };
+  process.stdout.write(JSON.stringify(out, null, 2) + "\n");
   return 0;
 }

@@ -27,7 +27,7 @@ function captureStreams(): CapturedStreams {
   };
 }
 
-describe("rubrix score-clarity (v1.2/PR #1 placeholder)", () => {
+describe("rubrix score-clarity (v1.2 read-only scorer)", () => {
   let cap: CapturedStreams;
   beforeEach(() => { cap = captureStreams(); });
   afterEach(() => { cap.restore(); });
@@ -49,19 +49,36 @@ describe("rubrix score-clarity (v1.2/PR #1 placeholder)", () => {
     expect(cap.stderr).toContain("rubric not present");
   });
 
-  it("emits a JSON object with hash + threshold + placeholder score=null on success", () => {
+  it("emits a JSON object with hash + threshold + numeric score on a v1.2 contract", () => {
     const c = baseV12Drafted();
     const path = tempContractFile(c);
     const code = scoreClarityCommand({ key: "rubric", path });
     expect(code).toBe(0);
     const parsed = JSON.parse(cap.stdout);
     expect(parsed.artifact).toBe("rubric");
-    expect(parsed.score).toBeNull();
-    expect(parsed.deductions).toEqual([]);
-    expect(parsed.scorer_version).toBe("placeholder/1.0");
+    expect(typeof parsed.score).toBe("number");
+    expect(parsed.score).toBeGreaterThanOrEqual(0);
+    expect(parsed.score).toBeLessThanOrEqual(1);
+    expect(parsed.scorer_version).toBe("clarity-scorer/1.0");
+    expect(parsed.scorer_active).toBe(true);
     expect(parsed.threshold_policy_version).toBe("clarity-policy/1.0");
     expect(parsed.threshold).toBe(0.75);
     expect(parsed.artifact_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(typeof parsed.ok).toBe("boolean");
+  });
+
+  it("treats v1.0/v1.1 contracts (version<1.2.0) as read-compat: scorer_active=false, score=1, ok=true", () => {
+    const c = baseV12Drafted();
+    c.version = "0.1.0";
+    const path = tempContractFile(c);
+    const code = scoreClarityCommand({ key: "rubric", path });
+    expect(code).toBe(0);
+    const parsed = JSON.parse(cap.stdout);
+    expect(parsed.scorer_active).toBe(false);
+    expect(parsed.score).toBe(1);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.deductions).toEqual([]);
+    expect(parsed.note).toMatch(/contract version/i);
   });
 
   it("never mutates rubrix.json (read-only)", () => {
