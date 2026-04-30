@@ -92,6 +92,32 @@ describe("PreToolUse — /rubrix:rubric brief gate", () => {
       expect(decision.decision).toBe("block");
     }
   });
+
+  it("does NOT bypass code-edit lock checks when tool=Edit and prompt looks like /rubric (P1 regression)", () => {
+    const path = tmpContract(calibratedIntent());
+    const decision = handlePreToolUse({
+      cwd: tmpdir(),
+      contract_path: path,
+      tool_name: "Edit",
+      tool_input: { file_path: "/tmp/some-file.ts" },
+      prompt: "/rubrix:rubric",
+    });
+    expect(decision.decision).toBe("block");
+    expect(decision.reason).toMatch(/rubric is not yet locked/);
+  });
+
+  it("code-edit lock fires for Write+rubric-prompt even with calibrated brief", () => {
+    const path = tmpContract(calibratedIntent());
+    const decision = handlePreToolUse({
+      cwd: tmpdir(),
+      contract_path: path,
+      tool_name: "Write",
+      tool_input: { file_path: "/tmp/some-file.ts" },
+      prompt: "rubric",
+    });
+    expect(decision.decision).toBe("block");
+    expect(decision.reason).toMatch(/rubric is not yet locked/);
+  });
 });
 
 describe("UserPromptExpansion — brief suggestion hint", () => {

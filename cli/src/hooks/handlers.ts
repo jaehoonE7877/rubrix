@@ -193,19 +193,20 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const ctx = buildLifecycleContext(state, locks);
   const tool = typeof input.tool_name === "string" ? input.tool_name : "";
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
-  if (promptInvokesRubric(prompt)) {
+  const isCodeEdit = CODE_EDITING_TOOLS.has(tool);
+  if (!isCodeEdit && promptInvokesRubric(prompt)) {
     if (!calibrated && !isBriefSkipEnv()) {
       return { decision: "block", reason: reasonForRubricBlocked(), additionalContext: ctx };
     }
     return { decision: "allow" };
   }
-  if (promptInvokesScore(prompt)) {
+  if (!isCodeEdit && promptInvokesScore(prompt)) {
     if (!locks.plan) {
       return { decision: "block", reason: reasonForScoreBlocked(), additionalContext: ctx };
     }
     return { decision: "allow" };
   }
-  if (CODE_EDITING_TOOLS.has(tool)) {
+  if (isCodeEdit) {
     if (targetsContract(input, path)) {
       return { decision: "allow", reason: "editing rubrix.json contract itself is exempt from code-edit gate" };
     }
