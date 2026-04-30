@@ -1,31 +1,46 @@
 {
   "version": "0.1.0",
-  "release": "v1.1.0",
+  "release": "v1.2.0",
   "tracking": {
-    "parent": "RUB-9",
-    "subIssues": ["RUB-15", "RUB-16", "RUB-17"],
-    "branch": "release/v1.1"
+    "parent": "RUB-10",
+    "subIssues": ["RUB-22", "RUB-23", "RUB-24"],
+    "branch": "release/v1.2",
+    "notion": "https://app.notion.com/p/3524408817af81f79513fb43ba303f36"
+  },
+  "rules": {
+    "codexReviewGate": {
+      "model": "codex-gpt5.5",
+      "reasoning": "xhigh",
+      "appliesTo": ["RUB-22", "RUB-23", "RUB-24", "RUB-10"],
+      "deliverables": [
+        "review-point commit on the same branch",
+        "Codex review summary section in PR body",
+        "Codex review summary comment on the corresponding Linear issue"
+      ]
+    },
+    "prTool": "gh pr create (HEREDOC body)",
+    "selfApplication": "root rubrix.json walks IntentDrafted -> Passed across PR #1/#2/#3"
   },
   "steps": [
     {
-      "id": "pr1-schema-cli",
-      "issue": "RUB-15",
-      "branch": "feat/v1.1-schema-cli",
-      "produces": "intent.brief schema + rubrix brief init/get + validate warning + bootstrap rubrix.json",
+      "id": "pr1-schema-score-clarity",
+      "issue": "RUB-22",
+      "branch": "feature/v1.2-pr1-schema-score-clarity",
+      "produces": "schema .clarity additive + RubrixContract typing + resolveClarityThreshold + rubrix score-clarity (placeholder, hash-only) + validate v1.2-aware error + dogfood IntentDrafted -> RubricDrafted",
       "covers": []
     },
     {
-      "id": "pr2-skill-agent",
-      "issue": "RUB-16",
-      "branch": "feat/v1.1-skill-agent",
-      "produces": "/rubrix:brief skill + brief-interviewer agent + dogfood IntentDrafted -> MatrixLocked",
+      "id": "pr2-clarity-scorer-lock-gate",
+      "issue": "RUB-23",
+      "branch": "feature/v1.2-pr2-clarity-scorer-lock-gate",
+      "produces": "agents/clarity-scorer.md + cli/src/core/clarity.ts (canonicalize + cache + malformed handling) + rubrix lock semver-gated scorer call + score-clarity wired to real scorer + PostToolUse first-deduction surface + dogfood RubricDrafted -> MatrixLocked",
       "covers": []
     },
     {
-      "id": "pr3-hook-scoring",
-      "issue": "RUB-17",
-      "branch": "feat/v1.1-hook-scoring",
-      "produces": "PreToolUse brief gate + axis_depth floor + report changes + version bump 1.1.0 + dogfood Passed",
+      "id": "pr3-force-report-dogfood",
+      "issue": "RUB-24",
+      "branch": "feature/v1.2-pr3-force-audit-report-dogfood",
+      "produces": "rubrix lock --force <reason> audit + report Forced Locks section + PostToolUse full deduction surface + PLUGIN-README updates + dogfood MatrixLocked -> Passed",
       "covers": []
     }
   ]

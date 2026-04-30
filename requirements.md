@@ -1,45 +1,63 @@
-# Rubrix v1.1.0 — Intent Elicitation & Depth Calibration
+# Rubrix v1.2.0 — Measurement-Based Lock Gates
 
-> Source of truth: [`rubrix.json`](rubrix.json) (calibrated intent.brief)
-> Linear: [RUB-9](https://linear.app/rubrix/issue/RUB-9) (parent) · [RUB-15](https://linear.app/rubrix/issue/RUB-15) · [RUB-16](https://linear.app/rubrix/issue/RUB-16) · [RUB-17](https://linear.app/rubrix/issue/RUB-17)
+> Source of truth: [`rubrix.json`](rubrix.json) (calibrated intent.brief, version 1.2.0)
+> Linear: [RUB-10](https://linear.app/rubrix/issue/RUB-10) (parent) · [RUB-22](https://linear.app/rubrix/issue/RUB-22) · [RUB-23](https://linear.app/rubrix/issue/RUB-23) · [RUB-24](https://linear.app/rubrix/issue/RUB-24)
+> Notion: [v1.2 Measurement-Based Lock Gates](https://app.notion.com/p/3524408817af81f79513fb43ba303f36)
 
 ## Why
 
-v1.0.1은 모든 run을 같은 rigor로 평가한다. demo 프로토타입과 regulated production이 동일한 rubric 구조를 받는다. v1.1은 intent를 구조화된 depth-calibrated brief로 교체해, downstream artifact가 프로젝트 성격에 맞는 rigor를 상속하도록 만든다.
+v1.1.0 made intent calibrated. v1.2 makes the artifacts themselves calibrated. Locking a vague rubric/matrix/plan poisons all downstream evaluation, so v1.2 introduces a measurement-based gate: `rubrix lock <artifact>` must clear a clarity threshold before mutating state. Lock stays explicit, but becomes *fallible*. v1.2 is the direct prerequisite of v1.3 multi-evaluator cascade — Stage 1 needs an unambiguous anchor to match against.
 
-## Scope (additive minor)
+## Scope (additive minor, version-aware enforcement)
 
-- `intent.brief` 객체 추가 (project_type, situation, ambition, risk_modifiers, axis_depth, calibrated). `intent.summary`는 deprecated-but-preserved.
-- `rubric.criteria[].axis` enum 필드 추가 (security|data|correctness|ux|perf).
-- `/rubrix:brief` skill + `brief-interviewer` agent.
-- `rubrix brief init/get` CLI + `rubrix validate` brief-warning.
-- PreToolUse gate: brief 미calibrated 시 `/rubrix:rubric` 호출 deny.
-- Scoring: deep 축 매핑 criteria의 effective floor = `max(criterion.floor ?? 0, 0.7)`.
+- `clarity-scorer` agent (JSON-only, deterministic) scoring Goal Clarity × Specificity × Coverage × Measurability on rubric/matrix/plan with artifact-specific weights.
+- Schema additive: `rubric.clarity` / `matrix.clarity` / `plan.clarity` object with `{ score, threshold, deductions[], scored_at, scorer_version, artifact_hash, forced, forced_at?, force_reason? }`.
+- Enforcement is **contract version-aware**: only `version >= 1.2.0` contracts gate at lock and require `clarity` at *Locked states. v1.0/v1.1 (`version="0.1.0"` or earlier) read-compat preserved.
+- Threshold defaults: `rubric=0.75`, `matrix=0.80`, `plan=0.70`. Override precedence: CLI flag > config > `intent.brief.axis_depth`. axis_depth modifier: `deep`=+0.10, `standard`=0, `light`=-0.10. Multi-axis → max-modifier (most strict).
+- CLI:
+  - `rubrix score-clarity <key> <path>` — read-only, prints score + deductions JSON, never mutates `rubrix.json`.
+  - `rubrix lock <key> <path>` — calls `clarity-scorer`, fails closed on score<threshold or malformed scorer output.
+  - `rubrix lock <key> <path> --force <reason>` — audits forced lock with `forced=true`, `forced_at`, `force_reason` persisted to clarity.
+- PostToolUse: lock failure surfaces deductions inside `<rubrix-suggestion>` block (actionable, not just stderr).
+- `rubrix report`: adds "Forced Locks" section (artifact / score / threshold / forced_at / reason) when contract is v1.2+.
+- Determinism contract: cache key = `{scorer_version, artifact_hash, threshold_policy_version}`. Same artifact → byte-equivalent JSON or at minimum identical score + deduction codes.
 
 ## Non-goals
 
-- State machine 변경.
-- Cryptographic seed freeze (v1.5).
-- 자동 brief 재교정 / drift 감지 (v1.4).
-- multi-axis interview parallel extraction.
+- Multi-evaluator cascade (v1.3).
+- Drift detection / recovery loop (v1.4).
+- Event-sourced run history (v1.5).
+- `--force` cumulative hard-block (deferred until v1.4 `--accept-drift` policy alignment).
+- Cryptographic seed freeze.
+- Disk-backed clarity cache (in-memory only in v1.2; disk in v1.5).
 
 ## Acceptance criteria
 
-1. `rubrix brief init && rubrix validate` → calibrated=true contract 생성.
-2. v1.0 fixture (brief 없음) 로드 시 validate ok + warning만 (gate는 통과).
-3. brief schema enum 위반은 validation fail.
-4. brief 미calibrated 상태에서 `/rubrix:rubric` 호출 → PreToolUse stdout JSON에 `hookSpecificOutput.permissionDecision=deny` + `permissionDecisionReason` (예: `Run /rubrix:brief first to calibrate intent ...`), exit code 0.
-5. `RUBRIX_SKIP_BRIEF=1` env override 동작 (deny 우회 + all-`standard` fallback).
-6. `axis_depth.<axis>=deep` 매핑 criterion 점수 < 0.7 → Fail (다른 축 보상 없음).
-7. `axis_depth.<axis>=standard` 동일 입력은 v1.0 동작과 동일.
-8. `brief-interviewer` 출력이 schema 검증 통과 (enum 위반 fixture 포함).
-9. Root `rubrix.json` v1.1 release 시점 state=`Passed`.
-10. 신규 user-facing 문서 0개 (5문서 정책 유지).
+1. `rubrix score-clarity rubric ./rubrix.json` → exit 0, JSON to stdout, `rubrix.json` byte-unchanged.
+2. Same artifact scored twice → byte-equivalent JSON (artifact_hash identical) or identical `score` + deduction `code`s.
+3. `rubrix lock <key>` with score < threshold (no `--force`) → exit 3 with named deductions on stderr.
+4. `rubrix lock <key> --force "<reason>"` → exit 0 with `clarity.forced=true`, `clarity.forced_at` ISO timestamp, `clarity.force_reason="<reason>"` persisted.
+5. `rubrix report` on a v1.2 contract surfaces a "Forced Locks" section; v1.0/v1.1 contracts omit the section entirely.
+6. v1.0/v1.1 fixtures (`examples/self-eval`, `examples/ios-refactor`, any `version<"1.2"`) load, validate, gate, and report unchanged from v1.1.x behavior.
+7. v1.2 contract with state=`*Locked` but missing `clarity` on the corresponding artifact → `rubrix validate` fails with a user-facing message.
+8. Malformed `clarity-scorer` output (invalid JSON / enum violation / missing required field) → lock fails closed, no `clarity` written.
+9. Threshold lookup: `intent.brief.axis_depth.security="deep"` → `resolveClarityThreshold(c, "rubric") = 0.85`; `light` axis → `0.65`.
+10. PostToolUse: lock failure produces a `<rubrix-suggestion>` block with deduction codes and an actionable next-step hint (`/rubrix:rubric` rerun or `--force` with a reason).
+11. Root `rubrix.json` reaches state=`Passed` via natural lock (no `--force`) at the end of PR #3 (RUB-24), demonstrating self-evaluation.
+12. Codex review gate: each PR (#1/#2/#3) and the final integration PR carry a recorded `codex-gpt5.5` (xhigh) review summary in both the PR body and the corresponding Linear comment.
+13. No new user-facing docs created (5-doc policy preserved); `PLUGIN-README.md` updated additively.
 
 ## Risks & mitigations
 
-- 기존 사용자 PreToolUse gate 충돌 → `RUBRIX_SKIP_BRIEF=1` env override + 첫 deny 시 마이그레이션 안내.
-- trivial run brief 부담 → `ambition=demo` short-circuit (모든 axis=`light`).
-- axis_depth 적용 contract underspecified → floor-only 단일 rule (`max(criterion.floor ?? 0, 0.7)` for deep axis).
-- brief-interviewer 자연어 폭주 → JSON-only schema, enum 위반 fail.
-- dogfood bootstrap 무한루프 → hook gate는 PR #3, brief skill은 PR #2 (시간차).
+- **Lock rejection frustration** → deductions must be actionable (mandated by enum + message). Guarded by acceptance #3.
+- **Scorer non-determinism** → cache key + JSON output schema enforced; agent system prompt forbids natural language. Guarded by acceptance #2 + #8.
+- **v1.0/v1.1 breakage** → enforcement gated on `version >= 1.2.0` (semver compare in CLI, not schema oneOf). Guarded by acceptance #6.
+- **Schema 1.2 bump confusion** → `version` field actually bumps to `"1.2.0"` in dogfood for the first time (prior dogfoods kept `"0.1.0"`); CLI `loadContract` logs the resolved enforcement tier on `--verbose`.
+- **`--force` abuse** → audit is mandatory (`force_reason` required); report surfaces every forced lock; v1.4 will add cumulative hard-block.
+
+## Operating rules
+
+- Branch: `release/v1.2` ← `origin/main`. Sub-branches: `feature/v1.2-pr1-schema-score-clarity`, `feature/v1.2-pr2-clarity-scorer-lock-gate`, `feature/v1.2-pr3-force-audit-report-dogfood`. All sub-PRs target `release/v1.2`; final integration PR `release/v1.2 → main`.
+- PR creation: `gh pr create` (GitHub CLI), HEREDOC body.
+- Codex review gate (mandatory per PR): `codex-gpt5.5` reasoning effort `xhigh`. Review summary embedded in PR body and Linear comment. No PR merges without it.
+- Self-application: this very `rubrix.json` walks IntentDrafted → Passed across the 3 PRs and is the source of v1.2 self-evaluation evidence.
