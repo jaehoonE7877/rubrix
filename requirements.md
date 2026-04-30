@@ -2,7 +2,6 @@
 
 > Source of truth: [`rubrix.json`](rubrix.json) (calibrated intent.brief)
 > Linear: [RUB-9](https://linear.app/rubrix/issue/RUB-9) (parent) · [RUB-15](https://linear.app/rubrix/issue/RUB-15) · [RUB-16](https://linear.app/rubrix/issue/RUB-16) · [RUB-17](https://linear.app/rubrix/issue/RUB-17)
-> Codex verdict (gpt-5.5 xhigh): floor-only deep-axis rule · repo-root dogfood · 3-PR + single v1.1.0 release
 
 ## Why
 
@@ -41,6 +40,6 @@ v1.0.1은 모든 run을 같은 rigor로 평가한다. demo 프로토타입과 re
 
 - 기존 사용자 PreToolUse gate 충돌 → `RUBRIX_SKIP_BRIEF=1` env override + 첫 deny 시 마이그레이션 안내.
 - trivial run brief 부담 → `ambition=demo` short-circuit (모든 axis=`light`).
-- axis_depth 적용 contract underspecified → floor-only 단일 rule (Codex Q1).
+- axis_depth 적용 contract underspecified → floor-only 단일 rule (`max(criterion.floor ?? 0, 0.7)` for deep axis).
 - brief-interviewer 자연어 폭주 → JSON-only schema, enum 위반 fail.
 - dogfood bootstrap 무한루프 → hook gate는 PR #3, brief skill은 PR #2 (시간차).

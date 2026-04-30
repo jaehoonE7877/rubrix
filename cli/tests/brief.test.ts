@@ -65,6 +65,44 @@ describe("brief schema", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("rejects calibrated=true without project_type/situation/ambition/axis_depth", () => {
+    const r = validateContract({
+      version: "0.1.0",
+      intent: { summary: "x", brief: { calibrated: true } },
+      state: "IntentDrafted",
+      locks: { rubric: false, matrix: false, plan: false },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects calibrated=true with only some required fields (missing axis_depth)", () => {
+    const r = validateContract({
+      version: "0.1.0",
+      intent: {
+        summary: "x",
+        brief: {
+          calibrated: true,
+          project_type: "doc",
+          situation: "internal_tool",
+          ambition: "demo",
+        },
+      },
+      state: "IntentDrafted",
+      locks: { rubric: false, matrix: false, plan: false },
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("accepts calibrated=false with no payload (degenerate state)", () => {
+    const r = validateContract({
+      version: "0.1.0",
+      intent: { summary: "x", brief: { calibrated: false } },
+      state: "IntentDrafted",
+      locks: { rubric: false, matrix: false, plan: false },
+    });
+    expect(r.ok).toBe(true);
+  });
+
   it("accepts a v1.0 contract without brief (backward compat)", () => {
     const r = validateContract({
       version: "0.1.0",
@@ -152,17 +190,62 @@ describe("brief init command", () => {
     expect(code).toBe(2);
   });
 
+  it("requires --project-type when creating new calibrated brief", () => {
+    const path = tmpPath();
+    const code = briefInitCommand({
+      path,
+      summary: "x",
+      situation: "internal_tool",
+      ambition: "demo",
+    });
+    expect(code).toBe(2);
+  });
+
+  it("requires --situation when creating new calibrated brief", () => {
+    const path = tmpPath();
+    const code = briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "doc",
+      ambition: "demo",
+    });
+    expect(code).toBe(2);
+  });
+
+  it("requires --ambition when creating new calibrated brief", () => {
+    const path = tmpPath();
+    const code = briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "doc",
+      situation: "internal_tool",
+    });
+    expect(code).toBe(2);
+  });
+
+  it("auto-fills empty axis_depth when --axis is omitted on a fresh brief", () => {
+    const path = tmpPath();
+    const code = briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "doc",
+      situation: "internal_tool",
+      ambition: "demo",
+    });
+    expect(code).toBe(0);
+    const c = loadContract(path);
+    expect(c.intent.brief?.axis_depth).toEqual({});
+  });
+
   it("upgrades an existing IntentDrafted contract idempotently", () => {
     const path = tmpPath();
-    writeFileSync(
+    briefInitCommand({
       path,
-      JSON.stringify({
-        version: "0.1.0",
-        intent: { summary: "old summary" },
-        state: "IntentDrafted",
-        locks: { rubric: false, matrix: false, plan: false },
-      }),
-    );
+      summary: "old summary",
+      projectType: "doc",
+      situation: "internal_tool",
+      ambition: "mvp",
+    });
     const code = briefInitCommand({
       path,
       summary: "new summary",
@@ -172,6 +255,23 @@ describe("brief init command", () => {
     const c = loadContract(path);
     expect(c.intent.summary).toBe("new summary");
     expect(c.intent.brief?.ambition).toBe("demo");
+    expect(c.intent.brief?.project_type).toBe("doc");
+    expect(c.intent.brief?.situation).toBe("internal_tool");
+  });
+
+  it("refuses to upgrade when merged brief still lacks required fields", () => {
+    const path = tmpPath();
+    writeFileSync(
+      path,
+      JSON.stringify({
+        version: "0.1.0",
+        intent: { summary: "old" },
+        state: "IntentDrafted",
+        locks: { rubric: false, matrix: false, plan: false },
+      }),
+    );
+    const code = briefInitCommand({ path, ambition: "production" });
+    expect(code).toBe(2);
   });
 
   it("refuses to overwrite when state is past IntentDrafted", () => {
@@ -208,13 +308,26 @@ describe("brief get command", () => {
 
   it("emits effective axis depth via --axis", () => {
     const path = tmpPath();
-    briefInitCommand({ path, summary: "x", ambition: "production", axis: ["security=deep"] });
+    briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "greenfield",
+      situation: "internal_tool",
+      ambition: "production",
+      axis: ["security=deep"],
+    });
     expect(briefGetCommand({ path, axis: "security" })).toBe(0);
   });
 
   it("rejects unknown --axis name", () => {
     const path = tmpPath();
-    briefInitCommand({ path, summary: "x" });
+    briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "doc",
+      situation: "internal_tool",
+      ambition: "demo",
+    });
     expect(briefGetCommand({ path, axis: "moonshine" })).toBe(2);
   });
 });
@@ -293,12 +406,14 @@ describe("brief contract roundtrip", () => {
     briefInitCommand({
       path,
       summary: "x",
+      projectType: "infra",
       situation: "regulated",
       ambition: "hardened",
       axis: ["security=deep", "data=deep", "perf=light"],
     });
     const raw = JSON.parse(readFileSync(path, "utf8"));
     expect(raw.intent.brief.calibrated).toBe(true);
+    expect(raw.intent.brief.project_type).toBe("infra");
     expect(raw.intent.brief.situation).toBe("regulated");
     expect(raw.intent.brief.axis_depth.data).toBe("deep");
     expect(raw.intent.brief.axis_depth.perf).toBe("light");
