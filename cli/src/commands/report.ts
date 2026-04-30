@@ -104,7 +104,7 @@ export function buildReport(path: string): string {
       lines.push("| artifact | score | threshold | forced_at | reason |");
       lines.push("| --- | --- | --- | --- | --- |");
       for (const f of forced) {
-        lines.push(`| ${f.artifact} | ${f.score} | ${f.threshold} | ${f.forced_at} | ${f.reason} |`);
+        lines.push(`| ${f.artifact} | ${f.score} | ${f.threshold} | ${f.forced_at} | ${escapeTableCell(f.reason)} |`);
       }
       lines.push("");
     }
@@ -118,6 +118,10 @@ interface ForcedLockRow {
   threshold: number;
   forced_at: string;
   reason: string;
+}
+
+function escapeTableCell(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ⏎ ");
 }
 
 function collectForcedLocks(c: RubrixContract): ForcedLockRow[] {

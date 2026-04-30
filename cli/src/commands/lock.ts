@@ -57,12 +57,21 @@ export function lockCommand(opts: LockOptions): number {
         return 3;
       }
     }
-    if (isV12Plus(c)) {
-      const force = typeof opts.force === "string" ? opts.force.trim() : undefined;
-      if (opts.force !== undefined && (force === undefined || force.length === 0)) {
+    if (opts.force !== undefined) {
+      const trimmed = opts.force.trim();
+      if (trimmed.length === 0) {
         process.stderr.write(`cannot lock ${opts.key}: --force requires a non-empty reason (e.g. --force "vendor freeze blocking refactor")\n`);
         return 2;
       }
+      if (!isV12Plus(c)) {
+        process.stderr.write(
+          `cannot lock ${opts.key}: --force is only supported on v1.2+ contracts (this contract has version=${c.version}); --force needs the clarity audit trail to be meaningful.\n`,
+        );
+        return 2;
+      }
+    }
+    if (isV12Plus(c)) {
+      const force = typeof opts.force === "string" ? opts.force.trim() : undefined;
       const threshold = resolveClarityThreshold(c, opts.key, {
         override: opts.threshold,
         env: opts.env,

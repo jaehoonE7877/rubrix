@@ -27,6 +27,22 @@ describe("rubrix report Forced Locks section (v1.2/PR #3)", () => {
     expect(md).toContain("| rubric | 0.4 | 0.85 | 2026-05-01T12:34:56.000Z | vendor freeze |");
   });
 
+  it("(codex review P3 follow-up) escapes pipe and newline characters in force_reason so the markdown table stays well-formed", () => {
+    const c = baseV12Drafted();
+    c.rubric!.clarity = clarity(0.40, 0.85, {
+      forced: true,
+      forced_at: "2026-05-01T00:00:00.000Z",
+      force_reason: "vendor freeze | line1\nline2",
+    });
+    c.state = "RubricLocked";
+    c.locks = { rubric: true, matrix: false, plan: false };
+    const md = buildReport(tempContractFile(c));
+    const tableLines = md.split("\n").filter((l) => l.startsWith("| rubric"));
+    expect(tableLines).toHaveLength(1);
+    expect(tableLines[0]).toContain("\\|");
+    expect(tableLines[0]).not.toMatch(/\nline2/);
+  });
+
   it("v1.0 contract (version 0.1.0) omits the Forced Locks section entirely (no regression)", () => {
     const c = baseDrafted();
     c.matrix = { rows: [{ id: "r", criterion: "c1", evidence_required: "e" }] };

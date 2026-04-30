@@ -52,6 +52,19 @@ describe("rubrix lock --force audit (v1.2/PR #3)", () => {
     expect(code).toBe(3);
   });
 
+  it("(codex review P2 follow-up) --force on a v1.0 contract is rejected with exit 2 (audit-only feature)", () => {
+    const c = baseV12Drafted();
+    c.version = "0.1.0";
+    c.rubric = { threshold: 0.5, criteria: [{ id: "tiny", description: "short", weight: 1 }] };
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "rubric", path, force: "ignore me", env: {} });
+    expect(code).toBe(2);
+    expect(cap.stderr).toContain("only supported on v1.2+");
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.state).toBe("RubricDrafted");
+    expect(after.locks.rubric).toBe(false);
+  });
+
   it("--force on a passing v1.2 rubric still annotates forced=true (audit trail honored even when not strictly needed)", () => {
     const c = baseV12Drafted();
     c.rubric = {
