@@ -23,10 +23,124 @@
       }
     }
   },
-  "state": "IntentDrafted",
+  "rubric": {
+    "threshold": 0.8,
+    "criteria": [
+      {
+        "id": "brief_schema_additive",
+        "description": "cli/schemas/rubrix.schema.json accepts intent.brief and rubric.criteria[].axis additively; v1.0 fixtures (examples/self-eval, examples/ios-refactor) keep validating clean; enum violations on brief or axis fail validation.",
+        "weight": 0.15,
+        "axis": "correctness",
+        "verify": "vitest cli/tests/brief.test.ts"
+      },
+      {
+        "id": "brief_cli_works",
+        "description": "rubrix brief init produces a calibrated IntentDrafted contract; rubrix brief get --axis prints effective depth (skip env, demo short-circuit, per-axis); rubrix validate warns on uncalibrated >= RubricDrafted but does not fail.",
+        "weight": 0.1,
+        "axis": "correctness",
+        "verify": "vitest cli/tests/brief.test.ts cli/tests/integration/brief-validate.test.ts"
+      },
+      {
+        "id": "axis_floor_enforced",
+        "description": "rubrix gate raises effective floor of every criterion mapped to a deep axis to max(criterion.floor ?? 0, 0.7); other axes unchanged from v1.0 behavior.",
+        "weight": 0.2,
+        "floor": 0.7,
+        "axis": "correctness",
+        "verify": "vitest cli/tests/axis-depth-floor.test.ts (PR #3)"
+      },
+      {
+        "id": "brief_skill_present",
+        "description": "skills/brief/SKILL.md and agents/brief-interviewer.md exist with valid frontmatter and JSON-only output contract; .claude-plugin/plugin.json registers the new agent.",
+        "weight": 0.1,
+        "axis": "ux",
+        "verify": "manual review + claude plugin validate"
+      },
+      {
+        "id": "pretooluse_gate_blocks",
+        "description": "PreToolUse hook returns hookSpecificOutput.permissionDecision=deny + exit 0 + stderr message when /rubrix:rubric is invoked while intent.brief.calibrated !== true and RUBRIX_SKIP_BRIEF !== '1'.",
+        "weight": 0.15,
+        "axis": "security",
+        "verify": "vitest cli/tests/hook-brief-gate.test.ts (PR #3)"
+      },
+      {
+        "id": "backward_compat",
+        "description": "v1.0 contracts (no intent.brief) keep loading, validating, gating, and reporting unchanged; RUBRIX_SKIP_BRIEF=1 bypasses the PreToolUse gate and forces all-standard axis depth fallback (deterministic).",
+        "weight": 0.15,
+        "axis": "correctness",
+        "verify": "vitest cli/tests/integration/brief-bootstrap.test.ts (PR #3)"
+      },
+      {
+        "id": "dogfood_passed",
+        "description": "The repo-root rubrix.json reaches state=Passed via rubrix gate --apply at the end of PR #3, demonstrating that v1.1 evaluates itself successfully.",
+        "weight": 0.1,
+        "axis": "correctness",
+        "verify": "rubrix gate ./rubrix.json --apply"
+      },
+      {
+        "id": "enterprise_clean_release",
+        "description": "Release artifacts are clean: no .rubrix/, reports/, transcripts, or per-run evidence committed to repo. Per-run evidence ships only as a GitHub Release asset (evidence-bundle.tar.gz with SHA-256 in annotated tag).",
+        "weight": 0.05,
+        "axis": "correctness",
+        "verify": "git ls-files + tag annotation review"
+      }
+    ]
+  },
+  "matrix": {
+    "rows": [
+      {
+        "id": "row-schema",
+        "criterion": "brief_schema_additive",
+        "evidence_required": "AJV validation of new intent.brief object and rubric.criteria[].axis enum on (a) repo-root rubrix.json, (b) examples/self-eval/rubrix.json (v1.0 fixture, no brief), (c) examples/ios-refactor/rubrix.json (v1.0 Passed fixture). Negative tests: brief.calibrated missing → fail; axis_depth.security='extreme' → fail; criteria.axis='moonshine' → fail.",
+        "verify": "vitest cli/tests/brief.test.ts -t 'brief schema'"
+      },
+      {
+        "id": "row-cli",
+        "criterion": "brief_cli_works",
+        "evidence_required": "rubrix brief init creates fresh IntentDrafted contract; idempotent re-init on IntentDrafted; refuses past IntentDrafted (exit 3); enum violations on flags exit 1; rubrix brief get --axis prints effective depth resolved by skip-env / demo / per-axis; validate warning text includes 'RUBRIX_SKIP_BRIEF=1' when env is set.",
+        "verify": "vitest cli/tests/brief.test.ts cli/tests/integration/brief-validate.test.ts"
+      },
+      {
+        "id": "row-axis-floor",
+        "criterion": "axis_floor_enforced",
+        "evidence_required": "Test fixture: contract with brief.axis_depth.security='deep' and criterion {axis:'security', score:0.6, floor:undefined} → gate returns Fail; same fixture with axis_depth.security='standard' → Pass. ambition='demo' overrides every axis to light. Effective floor formula = max(criterion.floor ?? 0, 0.7) only when resolved depth='deep'.",
+        "verify": "vitest cli/tests/axis-depth-floor.test.ts"
+      },
+      {
+        "id": "row-skill-doc",
+        "criterion": "brief_skill_present",
+        "evidence_required": "skills/brief/SKILL.md exists with frontmatter {name: brief, description: ...}; agents/brief-interviewer.md exists with frontmatter {name: brief-interviewer, tools: Read} and JSON-only output contract enumerating exact enum values; .claude-plugin/plugin.json agents array includes ./agents/brief-interviewer.md.",
+        "verify": "manual review + ls + claude plugin validate ."
+      },
+      {
+        "id": "row-gate-deny",
+        "criterion": "pretooluse_gate_blocks",
+        "evidence_required": "Hook stdin fixture: tool_name='SlashCommand', prompt='/rubrix:rubric', contract has intent.brief.calibrated=false → stdout JSON has hookSpecificOutput.permissionDecision='deny', exit code 0, stderr message references /rubrix:brief. Same fixture with env RUBRIX_SKIP_BRIEF=1 → permissionDecision='allow'. brief calibrated=true → allow.",
+        "verify": "vitest cli/tests/hook-brief-gate.test.ts"
+      },
+      {
+        "id": "row-bc",
+        "criterion": "backward_compat",
+        "evidence_required": "examples/self-eval/rubrix.json and examples/ios-refactor/rubrix.json validate without errors at every state (warning only, never fail). rubrix gate on v1.0 contract uses standard floor (no axis bump) regardless of brief absence. RUBRIX_SKIP_BRIEF=1 path tested via env-injected fixture.",
+        "verify": "vitest cli/tests/integration/brief-bootstrap.test.ts + manual rubrix validate examples/*/rubrix.json"
+      },
+      {
+        "id": "row-dogfood",
+        "criterion": "dogfood_passed",
+        "evidence_required": "Repo-root rubrix.json reaches state='Passed' on the PR #3 merge commit. Achieved by recording scores >= floor for every criterion, then rubrix gate ./rubrix.json --apply transitioning Scoring → Passed atomically.",
+        "verify": "rubrix gate ./rubrix.json --apply (post-merge state assertion)"
+      },
+      {
+        "id": "row-clean",
+        "criterion": "enterprise_clean_release",
+        "evidence_required": "git ls-files on main branch HEAD after v1.1.0 tag shows zero matches for: .rubrix/, reports/, *.log, iteration-*/, codex-review-*.md. v1.1.0 annotated tag message contains the SHA-256 of the evidence-bundle.tar.gz attached to the GitHub Release.",
+        "verify": "git ls-files | rg '^(\\.rubrix|reports|iteration-)' && git tag -v v1.1.0"
+      }
+    ]
+  },
+  "state": "MatrixLocked",
   "locks": {
-    "rubric": false,
-    "matrix": false,
+    "rubric": true,
+    "matrix": true,
     "plan": false
   }
 }
