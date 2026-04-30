@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { ContractError, loadContract } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
+import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
 
 export type HookEvent =
   | "SessionStart"
@@ -45,12 +46,21 @@ export interface HookDecision {
 
 const CODE_EDITING_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 const SCORE_TRIGGERS = new Set(["/score", "score", "/rubrix:score"]);
+const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
 
 function promptInvokesScore(prompt: string): boolean {
+  return promptInvokes(prompt, SCORE_TRIGGERS);
+}
+
+function promptInvokesRubric(prompt: string): boolean {
+  return promptInvokes(prompt, RUBRIC_TRIGGERS);
+}
+
+function promptInvokes(prompt: string, triggers: Set<string>): boolean {
   if (!prompt) return false;
-  if (SCORE_TRIGGERS.has(prompt)) return true;
+  if (triggers.has(prompt)) return true;
   const head = prompt.split(/\s+/, 1)[0] ?? "";
-  return SCORE_TRIGGERS.has(head);
+  return triggers.has(head);
 }
 
 function defaultContractPath(input: HookInput): string {
@@ -106,6 +116,14 @@ function reasonForScoreBlocked(): string {
   return `/rubrix:score blocked: plan is not yet locked. Run /rubrix:plan and lock it before scoring.`;
 }
 
+function reasonForRubricBlocked(): string {
+  return "/rubrix:rubric blocked: intent.brief is not yet calibrated. Run /rubrix:brief first to calibrate intent (or set RUBRIX_SKIP_BRIEF=1).";
+}
+
+function suggestionForBrief(): string {
+  return "<rubrix-suggestion>intent.brief is not calibrated yet — run /rubrix:brief before /rubrix:rubric (or export RUBRIX_SKIP_BRIEF=1 to bypass).</rubrix-suggestion>";
+}
+
 export function handleSessionStart(input: HookInput): HookDecision {
   const path = defaultContractPath(input);
   if (!existsSync(path)) {
@@ -128,10 +146,12 @@ export function handleUserPromptExpansion(input: HookInput): HookDecision {
   if (!existsSync(path)) return {};
   let ctx = "";
   let locksPlan: boolean | null = null;
+  let needsBriefHint = false;
   try {
     const c = loadContract(path);
     ctx = buildLifecycleContext(c.state, c.locks);
     locksPlan = c.locks.plan;
+    needsBriefHint = c.state === "IntentDrafted" && !isCalibrated(c) && !isBriefSkipEnv();
   } catch {
     return {};
   }
@@ -143,7 +163,8 @@ export function handleUserPromptExpansion(input: HookInput): HookDecision {
       additionalContext: ctx,
     };
   }
-  return { additionalContext: ctx };
+  const suffix = needsBriefHint ? `\n${suggestionForBrief()}` : "";
+  return { additionalContext: `${ctx}${suffix}` };
 }
 
 function targetsContract(input: HookInput, contractPath: string): boolean {
@@ -160,23 +181,32 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   if (!existsSync(path)) return { decision: "allow" };
   let state: State;
   let locks: Locks;
+  let calibrated = false;
   try {
     const c = loadContract(path);
     state = c.state;
     locks = c.locks;
+    calibrated = isCalibrated(c);
   } catch (e) {
     return { decision: "block", reason: `rubrix.json invalid: ${e instanceof Error ? e.message : String(e)}` };
   }
   const ctx = buildLifecycleContext(state, locks);
   const tool = typeof input.tool_name === "string" ? input.tool_name : "";
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
-  if (promptInvokesScore(prompt)) {
+  const isCodeEdit = CODE_EDITING_TOOLS.has(tool);
+  if (!isCodeEdit && promptInvokesRubric(prompt)) {
+    if (!calibrated && !isBriefSkipEnv()) {
+      return { decision: "block", reason: reasonForRubricBlocked(), additionalContext: ctx };
+    }
+    return { decision: "allow" };
+  }
+  if (!isCodeEdit && promptInvokesScore(prompt)) {
     if (!locks.plan) {
       return { decision: "block", reason: reasonForScoreBlocked(), additionalContext: ctx };
     }
     return { decision: "allow" };
   }
-  if (CODE_EDITING_TOOLS.has(tool)) {
+  if (isCodeEdit) {
     if (targetsContract(input, path)) {
       return { decision: "allow", reason: "editing rubrix.json contract itself is exempt from code-edit gate" };
     }

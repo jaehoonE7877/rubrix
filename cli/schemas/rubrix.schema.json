@@ -17,9 +17,55 @@
       "required": ["summary"],
       "additionalProperties": false,
       "properties": {
-        "summary": { "type": "string", "minLength": 1 },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-line task summary. Kept required for backward compatibility with v1.0 contracts; v1.1+ should also fill intent.brief."
+        },
         "details": { "type": "string" },
-        "owner": { "type": "string" }
+        "owner": { "type": "string" },
+        "brief": {
+          "type": "object",
+          "description": "v1.1+ depth-calibrated intent brief. When calibrated=true, project_type, situation, ambition, and axis_depth are all required (downstream artifacts inherit axis_depth). When calibrated=false, the other fields are optional and the contract behaves as if no brief were present.",
+          "required": ["calibrated"],
+          "additionalProperties": false,
+          "properties": {
+            "calibrated": { "type": "boolean" },
+            "project_type": {
+              "type": "string",
+              "enum": ["greenfield", "brownfield_refactor", "brownfield_feature", "infra", "doc"]
+            },
+            "situation": {
+              "type": "string",
+              "enum": ["prototype", "internal_tool", "customer_facing", "regulated"]
+            },
+            "ambition": {
+              "type": "string",
+              "enum": ["demo", "mvp", "production", "hardened"]
+            },
+            "risk_modifiers": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "axis_depth": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "security": { "type": "string", "enum": ["light", "standard", "deep"] },
+                "data": { "type": "string", "enum": ["light", "standard", "deep"] },
+                "correctness": { "type": "string", "enum": ["light", "standard", "deep"] },
+                "ux": { "type": "string", "enum": ["light", "standard", "deep"] },
+                "perf": { "type": "string", "enum": ["light", "standard", "deep"] }
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "calibrated": { "const": true } }, "required": ["calibrated"] },
+              "then": { "required": ["calibrated", "project_type", "situation", "ambition", "axis_depth"] }
+            }
+          ]
+        }
       }
     },
     "rubric": {
@@ -49,6 +95,11 @@
                 "description": "Per-criterion minimum score; if any criterion falls below floor, the run Fails regardless of total.",
                 "minimum": 0,
                 "maximum": 1
+              },
+              "axis": {
+                "type": "string",
+                "enum": ["security", "data", "correctness", "ux", "perf"],
+                "description": "v1.1+ axis tag. When intent.brief.axis_depth[axis]='deep', this criterion's effective floor is raised to max(floor ?? 0, 0.7)."
               },
               "verify": {
                 "type": "string",

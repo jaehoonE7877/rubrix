@@ -7,25 +7,41 @@ import {
   type RubrixContract,
 } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
+import { resolveAxisDepth } from "../core/brief.ts";
 
 export interface GateOptions {
   path: string;
   json?: boolean;
   apply?: boolean;
+  env?: NodeJS.ProcessEnv;
+}
+
+export interface GateCriterionResult {
+  id: string;
+  weight: number;
+  floor?: number;
+  effectiveFloor?: number;
+  axis?: string;
+  axisDepth?: string;
+  score?: number;
+  status: "missing" | "below_floor" | "ok";
 }
 
 export interface GateOutcome {
   decision: "pass" | "fail";
   total: number;
   threshold: number;
-  perCriterion: Array<{ id: string; weight: number; floor?: number; score?: number; status: "missing" | "below_floor" | "ok" }>;
+  perCriterion: GateCriterionResult[];
   reasons: string[];
 }
 
-export function evaluateGate(c: RubrixContract): GateOutcome {
+const DEEP_FLOOR = 0.7;
+
+export function evaluateGate(c: RubrixContract, env: NodeJS.ProcessEnv = process.env): GateOutcome {
   if (!c.rubric) {
     return { decision: "fail", total: 0, threshold: 0, perCriterion: [], reasons: ["rubric missing"] };
   }
+  const axisDepth = resolveAxisDepth(c, env);
   const scoresByCriterion = new Map<string, number>();
   for (const s of c.scores ?? []) {
     const prev = scoresByCriterion.get(s.criterion);
@@ -33,25 +49,41 @@ export function evaluateGate(c: RubrixContract): GateOutcome {
       scoresByCriterion.set(s.criterion, s.score);
     }
   }
-  const perCriterion: GateOutcome["perCriterion"] = [];
+  const perCriterion: GateCriterionResult[] = [];
   const reasons: string[] = [];
   let total = 0;
   let totalWeight = 0;
   for (const crit of c.rubric.criteria) {
     const score = scoresByCriterion.get(crit.id);
-    let status: "missing" | "below_floor" | "ok" = "ok";
+    const resolvedDepth = crit.axis ? axisDepth[crit.axis] : undefined;
+    const isDeep = resolvedDepth === "deep";
+    const baseFloor = crit.floor;
+    const effectiveFloor = isDeep ? Math.max(baseFloor ?? 0, DEEP_FLOOR) : baseFloor;
+    let status: GateCriterionResult["status"] = "ok";
     if (score === undefined) {
       status = "missing";
       reasons.push(`criterion ${crit.id}: no score`);
-    } else if (typeof crit.floor === "number" && score < crit.floor) {
+    } else if (typeof effectiveFloor === "number" && score < effectiveFloor) {
       status = "below_floor";
-      reasons.push(`criterion ${crit.id}: score ${score} below floor ${crit.floor}`);
+      const tag = isDeep && (baseFloor === undefined || baseFloor < DEEP_FLOOR)
+        ? `deep-axis effective floor ${effectiveFloor} (axis=${crit.axis})`
+        : `floor ${effectiveFloor}`;
+      reasons.push(`criterion ${crit.id}: score ${score} below ${tag}`);
     }
     if (score !== undefined) {
       total += crit.weight * score;
     }
     totalWeight += crit.weight;
-    perCriterion.push({ id: crit.id, weight: crit.weight, floor: crit.floor, score, status });
+    perCriterion.push({
+      id: crit.id,
+      weight: crit.weight,
+      ...(baseFloor !== undefined ? { floor: baseFloor } : {}),
+      ...(effectiveFloor !== undefined ? { effectiveFloor } : {}),
+      ...(crit.axis ? { axis: crit.axis } : {}),
+      ...(resolvedDepth ? { axisDepth: resolvedDepth } : {}),
+      ...(score !== undefined ? { score } : {}),
+      status,
+    });
   }
   const normalized = totalWeight > 0 ? total / totalWeight : 0;
   if (normalized < c.rubric.threshold) {
@@ -68,7 +100,7 @@ export function gateCommand(opts: GateOptions): number {
       process.stderr.write(`gate refuses to run: state is ${c.state}, expected Scoring|Passed|Failed\n`);
       return 3;
     }
-    const result = evaluateGate(c);
+    const result = evaluateGate(c, opts.env);
     if (opts.apply && c.state === "Scoring") {
       const next: State = result.decision === "pass" ? "Passed" : "Failed";
       const candidate: RubrixContract = { ...c, state: next };
