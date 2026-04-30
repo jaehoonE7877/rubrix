@@ -26,7 +26,7 @@
         "owner": { "type": "string" },
         "brief": {
           "type": "object",
-          "description": "v1.1+ depth-calibrated intent brief. When calibrated=true, downstream artifacts inherit axis_depth.",
+          "description": "v1.1+ depth-calibrated intent brief. When calibrated=true, project_type, situation, ambition, and axis_depth are all required (downstream artifacts inherit axis_depth). When calibrated=false, the other fields are optional and the contract behaves as if no brief were present.",
           "required": ["calibrated"],
           "additionalProperties": false,
           "properties": {
@@ -58,7 +58,13 @@
                 "perf": { "type": "string", "enum": ["light", "standard", "deep"] }
               }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "calibrated": { "const": true } }, "required": ["calibrated"] },
+              "then": { "required": ["calibrated", "project_type", "situation", "ambition", "axis_depth"] }
+            }
+          ]
         }
       }
     },
