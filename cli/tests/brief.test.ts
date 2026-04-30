@@ -306,6 +306,28 @@ describe("brief get command", () => {
     expect(briefGetCommand({ path })).toBe(0);
   });
 
+  it("emits standard fallback for --axis on a v1.0 contract without brief", () => {
+    const path = tmpPath();
+    writeFileSync(
+      path,
+      JSON.stringify({
+        version: "0.1.0",
+        intent: { summary: "x" },
+        state: "IntentDrafted",
+        locks: { rubric: false, matrix: false, plan: false },
+      }),
+    );
+    const log: string[] = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string) => { log.push(chunk); return true; }) as typeof process.stdout.write;
+    try {
+      expect(briefGetCommand({ path, axis: "security" })).toBe(0);
+    } finally {
+      process.stdout.write = orig;
+    }
+    expect(log.join("")).toMatch(/^standard\b/);
+  });
+
   it("emits effective axis depth via --axis", () => {
     const path = tmpPath();
     briefInitCommand({

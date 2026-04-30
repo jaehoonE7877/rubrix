@@ -119,15 +119,6 @@ function ensureCalibratedFields(p: Omit<IntentBrief, "calibrated">): CalibratedB
 export function briefGetCommand(opts: BriefGetOptions): number {
   try {
     const c = loadContract(opts.path);
-    const brief = c.intent.brief;
-    if (!brief) {
-      if (opts.json) {
-        process.stdout.write(JSON.stringify({ calibrated: false }, null, 2) + "\n");
-      } else {
-        process.stdout.write("(no brief)\n");
-      }
-      return 0;
-    }
     if (opts.axis) {
       if (!isAxis(opts.axis)) {
         process.stderr.write(`unknown axis: ${opts.axis} (allowed: ${AXES.join(",")})\n`);
@@ -139,6 +130,15 @@ export function briefGetCommand(opts: BriefGetOptions): number {
         process.stdout.write(JSON.stringify({ axis: opts.axis, depth: value }, null, 2) + "\n");
       } else {
         process.stdout.write(`${value}\n`);
+      }
+      return 0;
+    }
+    const brief = c.intent.brief;
+    if (!brief) {
+      if (opts.json) {
+        process.stdout.write(JSON.stringify({ calibrated: false }, null, 2) + "\n");
+      } else {
+        process.stdout.write("(no brief)\n");
       }
       return 0;
     }
