@@ -1,9 +1,49 @@
-import type { Axis, AxisDepth, IntentBrief, RubrixContract } from "./contract.ts";
+import type { ArtifactKey, Axis, AxisDepth, IntentBrief, RubrixContract } from "./contract.ts";
 
 export const AXES: ReadonlyArray<Axis> = ["security", "data", "correctness", "ux", "perf"];
 export const AXIS_DEPTHS: ReadonlyArray<AxisDepth> = ["light", "standard", "deep"];
 
 const SKIP_ENV_VAR = "RUBRIX_SKIP_BRIEF";
+
+export const CLARITY_BASE_THRESHOLDS: Readonly<Record<ArtifactKey, number>> = Object.freeze({
+  rubric: 0.75,
+  matrix: 0.80,
+  plan: 0.70,
+});
+
+export const CLARITY_DEPTH_MODIFIERS: Readonly<Record<AxisDepth, number>> = Object.freeze({
+  deep: 0.10,
+  standard: 0,
+  light: -0.10,
+});
+
+export const THRESHOLD_POLICY_VERSION = "clarity-policy/1.0";
+
+export interface ResolveClarityThresholdOpts {
+  override?: number;
+  env?: NodeJS.ProcessEnv;
+}
+
+export function resolveClarityThreshold(
+  contract: RubrixContract,
+  key: ArtifactKey,
+  opts: ResolveClarityThresholdOpts = {},
+): number {
+  if (typeof opts.override === "number" && Number.isFinite(opts.override)) {
+    return clampUnit(opts.override);
+  }
+  const depths = resolveAxisDepth(contract, opts.env ?? process.env);
+  const modifiers = AXES.map((a) => CLARITY_DEPTH_MODIFIERS[depths[a]]);
+  const modifier = modifiers.reduce((acc, m) => Math.max(acc, m), -Infinity);
+  const base = CLARITY_BASE_THRESHOLDS[key];
+  return clampUnit(base + modifier);
+}
+
+function clampUnit(n: number): number {
+  if (n < 0) return 0;
+  if (n > 1) return 1;
+  return Math.round(n * 10000) / 10000;
+}
 
 export function isBriefSkipEnv(env: NodeJS.ProcessEnv = process.env): boolean {
   return env[SKIP_ENV_VAR] === "1";

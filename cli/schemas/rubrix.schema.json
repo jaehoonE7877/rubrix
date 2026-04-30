@@ -6,6 +6,70 @@
   "type": "object",
   "required": ["version", "intent", "state", "locks"],
   "additionalProperties": false,
+  "$defs": {
+    "Clarity": {
+      "type": "object",
+      "description": "v1.2+ measurement-based lock evidence. Written by `rubrix lock` after the clarity-scorer agent runs, or by `rubrix lock --force <reason>` (with forced=true). Read-compat: v1.0/v1.1 contracts (version<1.2.0) never carry this field; v1.2+ contracts at *Locked state must.",
+      "required": ["score", "threshold", "deductions", "scored_at", "scorer_version", "artifact_hash", "forced"],
+      "additionalProperties": false,
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "0-1 weighted score across Goal Clarity × Specificity × Coverage × Measurability."
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Threshold applied at lock time. Resolved from `intent.brief.axis_depth` modifiers (deep=+0.10, standard=0, light=-0.10) over base {rubric:0.75, matrix:0.80, plan:0.70}, with optional CLI flag override."
+        },
+        "deductions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "message", "weight"],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "vague_description",
+                  "missing_evidence",
+                  "unmeasurable_floor",
+                  "dangling_reference",
+                  "uncovered_axis"
+                ]
+              },
+              "message": { "type": "string", "minLength": 1 },
+              "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "scored_at": { "type": "string", "format": "date-time" },
+        "scorer_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "e.g. 'clarity-scorer/1.0' — bump invalidates the determinism cache."
+        },
+        "artifact_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 of the canonical (sorted-keys) JSON of the artifact body."
+        },
+        "forced": { "type": "boolean", "description": "True iff the lock was forced via `--force <reason>` despite score < threshold." },
+        "forced_at": { "type": "string", "format": "date-time" },
+        "force_reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "forced": { "const": true } }, "required": ["forced"] },
+          "then": { "required": ["forced", "forced_at", "force_reason"] }
+        }
+      ]
+    }
+  },
   "properties": {
     "version": {
       "type": "string",
@@ -73,6 +137,7 @@
       "required": ["criteria", "threshold"],
       "additionalProperties": false,
       "properties": {
+        "clarity": { "$ref": "#/$defs/Clarity" },
         "threshold": {
           "type": "number",
           "description": "Minimum total weighted score required to Pass. No implicit default; must be set before lock.",
@@ -115,6 +180,7 @@
       "required": ["rows"],
       "additionalProperties": false,
       "properties": {
+        "clarity": { "$ref": "#/$defs/Clarity" },
         "rows": {
           "type": "array",
           "minItems": 1,
@@ -137,6 +203,7 @@
       "required": ["steps"],
       "additionalProperties": false,
       "properties": {
+        "clarity": { "$ref": "#/$defs/Clarity" },
         "steps": {
           "type": "array",
           "minItems": 1,
