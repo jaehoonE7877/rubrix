@@ -4,7 +4,7 @@
 
 이 저장소는 **Rubrix v1.0.0** — Claude Code용 evaluation-contract-first plugin 이다. 모호한 요청을 `rubrix.json` 중심의 평가 계약으로 구조화하고, `hooks` + `CLI` + `skills` + `subagents`로 agent 작업을 검증 가능한 lifecycle에 가둔다.
 
-주요 기준 문서는 [`PLUGIN-README.md`](PLUGIN-README.md) (사용자 가이드)와 [`docs/extensible-plan.md`](docs/extensible-plan.md) (v1.0 surface 설계 기록 + v1.1+ 로드맵). 라이프사이클 상태/락 불변식의 SSoT는 [`cli/schemas/rubrix.schema.json`](cli/schemas/rubrix.schema.json)이다.
+주요 기준 문서는 [`PLUGIN-README.md`](PLUGIN-README.md) (사용자 가이드)와 [`docs/extensible-plan.md`](docs/extensible-plan.md) (v1.0 surface 설계 기록 + v1.1+ 확장 계획). 라이프사이클 상태/락 불변식의 SSoT는 [`cli/schemas/rubrix.schema.json`](cli/schemas/rubrix.schema.json)이다.
 
 ## 현재 상태 (v1.0.0)
 

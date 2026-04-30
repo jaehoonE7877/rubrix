@@ -103,12 +103,4 @@ node cli/bin/rubrix.js validate examples/ios-refactor/rubrix.json
 
 전체 검증 체크리스트는 [`VERIFICATION.md`](VERIFICATION.md), 상세 사용 가이드는 [`PLUGIN-README.md`](PLUGIN-README.md) 참고. 라이프사이클 상태 enum과 락 불변식은 [`cli/schemas/rubrix.schema.json`](cli/schemas/rubrix.schema.json)이 SSoT.
 
-## v1.1+ 로드맵
-
-- `/rubrix:improve`, `/rubrix:replay`, `/rubrix:learn` 스킬
-- Run history 자동화 (`runs/`)
-- Multi-evaluator aggregation
-- Domain pack (iOS, web, infra)
-- `@rubrix/cli` npm 배포 및 Claude Code Marketplace 등록
-
-자세한 로드맵은 [`docs/extensible-plan.md`](docs/extensible-plan.md) 참고.
+향후 로드맵은 [`docs/extensible-plan.md`](docs/extensible-plan.md) 참고.
