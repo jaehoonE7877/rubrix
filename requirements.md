@@ -28,7 +28,7 @@ v1.0.1은 모든 run을 같은 rigor로 평가한다. demo 프로토타입과 re
 1. `rubrix brief init && rubrix validate` → calibrated=true contract 생성.
 2. v1.0 fixture (brief 없음) 로드 시 validate ok + warning만 (gate는 통과).
 3. brief schema enum 위반은 validation fail.
-4. brief 미calibrated 상태에서 `/rubrix:rubric` 호출 → PreToolUse `permissionDecision=deny` + exit 0 + stderr.
+4. brief 미calibrated 상태에서 `/rubrix:rubric` 호출 → PreToolUse stdout JSON에 `hookSpecificOutput.permissionDecision=deny` + `permissionDecisionReason` (예: `Run /rubrix:brief first to calibrate intent ...`), exit code 0.
 5. `RUBRIX_SKIP_BRIEF=1` env override 동작 (deny 우회 + all-`standard` fallback).
 6. `axis_depth.<axis>=deep` 매핑 criterion 점수 < 0.7 → Fail (다른 축 보상 없음).
 7. `axis_depth.<axis>=standard` 동일 입력은 v1.0 동작과 동일.

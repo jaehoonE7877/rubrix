@@ -57,7 +57,7 @@
       },
       {
         "id": "pretooluse_gate_blocks",
-        "description": "PreToolUse hook returns hookSpecificOutput.permissionDecision=deny + exit 0 + stderr message when /rubrix:rubric is invoked while intent.brief.calibrated !== true and RUBRIX_SKIP_BRIEF !== '1'.",
+        "description": "PreToolUse hook returns hookSpecificOutput.permissionDecision=deny + hookSpecificOutput.permissionDecisionReason in stdout JSON + exit 0 when /rubrix:rubric is invoked while intent.brief.calibrated !== true and RUBRIX_SKIP_BRIEF !== '1'.",
         "weight": 0.15,
         "axis": "security",
         "verify": "vitest cli/tests/hook-brief-gate.test.ts (PR #3)"
@@ -114,7 +114,7 @@
       {
         "id": "row-gate-deny",
         "criterion": "pretooluse_gate_blocks",
-        "evidence_required": "Hook stdin fixture: tool_name='SlashCommand', prompt='/rubrix:rubric', contract has intent.brief.calibrated=false → stdout JSON has hookSpecificOutput.permissionDecision='deny', exit code 0, stderr message references /rubrix:brief. Same fixture with env RUBRIX_SKIP_BRIEF=1 → permissionDecision='allow'. brief calibrated=true → allow.",
+        "evidence_required": "Hook stdin fixture: tool_name='SlashCommand', prompt='/rubrix:rubric', contract has intent.brief.calibrated=false → stdout JSON has hookSpecificOutput.permissionDecision='deny' AND hookSpecificOutput.permissionDecisionReason referencing /rubrix:brief, exit code 0. Same fixture with env RUBRIX_SKIP_BRIEF=1 → permissionDecision='allow'. brief calibrated=true → allow.",
         "verify": "vitest cli/tests/hook-brief-gate.test.ts"
       },
       {
@@ -137,10 +137,101 @@
       }
     ]
   },
-  "state": "MatrixLocked",
+  "plan": {
+    "steps": [
+      {
+        "id": "pr1-impl",
+        "action": "Implement intent.brief schema, rubric.criteria[].axis enum, rubrix brief init/get CLI, validate brief warning, and 26 new tests; bootstrap repo-root rubrix.json/requirements.md/plan.json via the new CLI.",
+        "produces": "PR #16 — feat(v1.1): schema + CLI + bootstrap (RUB-15)",
+        "covers": [
+          "row-schema",
+          "row-cli",
+          "row-bc"
+        ]
+      },
+      {
+        "id": "pr2-skill",
+        "action": "Add skills/brief/SKILL.md and agents/brief-interviewer.md, register agent in plugin.json, update README/PLUGIN-README, and walk root rubrix.json through RubricDrafted → MatrixLocked via CLI.",
+        "produces": "PR #17 — feat(v1.1): /rubrix:brief skill + agent + dogfood lifecycle (RUB-16)",
+        "covers": [
+          "row-skill-doc"
+        ]
+      },
+      {
+        "id": "pr3-impl",
+        "action": "Add PreToolUse /rubrix:rubric brief gate (RUBRIX_SKIP_BRIEF=1 override), axis-depth deep floor in rubrix gate (effective floor = max(floor ?? 0, 0.7)), Intent brief block in rubrix report, version bump to 1.1.0, and 23 new tests. Walk root rubrix.json from PlanDrafted → Passed via rubrix gate --apply.",
+        "produces": "PR (TBD) — feat(v1.1): hook gate + axis floor + report + version + dogfood Passed (RUB-17)",
+        "covers": [
+          "row-axis-floor",
+          "row-gate-deny",
+          "row-dogfood",
+          "row-clean"
+        ]
+      }
+    ]
+  },
+  "scores": [
+    {
+      "criterion": "brief_schema_additive",
+      "score": 0.95,
+      "evaluator": "vitest+manual",
+      "confidence": 0.9,
+      "notes": "26 brief.test.ts assertions pass; v1.0 fixtures (self-eval, ios-refactor) keep validating clean; enum violations on intent.brief and rubric.criteria[].axis fail. additionalProperties:false preserved on intent."
+    },
+    {
+      "criterion": "brief_cli_works",
+      "score": 0.95,
+      "evaluator": "vitest+manual",
+      "confidence": 0.9,
+      "notes": "rubrix brief init creates fresh contract or upgrades IntentDrafted; refuses past IntentDrafted (exit 3); enum violations exit 1; rubrix brief get --axis returns effective depth; validate emits warning at >=RubricDrafted with RUBRIX_SKIP_BRIEF=1 annotation when set."
+    },
+    {
+      "criterion": "axis_floor_enforced",
+      "score": 0.9,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "axis-depth-floor.test.ts (7 tests) covers deep→bump, standard→no bump, demo short-circuit, RUBRIX_SKIP_BRIEF=1 fallback, explicit higher base floor preserved, untagged criterion immune, uncalibrated brief→standard fallback."
+    },
+    {
+      "criterion": "brief_skill_present",
+      "score": 0.95,
+      "evaluator": "manual+claude-plugin-validate",
+      "confidence": 0.9,
+      "notes": "skills/brief/SKILL.md and agents/brief-interviewer.md exist with valid frontmatter; agent enumerates every accepted enum value; .claude-plugin/plugin.json includes ./agents/brief-interviewer.md."
+    },
+    {
+      "criterion": "pretooluse_gate_blocks",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "hook-brief-gate.test.ts (9 tests) covers deny on /rubrix:rubric when uncalibrated, allow when calibrated, allow with RUBRIX_SKIP_BRIEF=1, alternate triggers (/rubric, rubric, /rubric foo), no interference with /rubrix:score path, UserPromptExpansion <rubrix-suggestion> append/skip semantics."
+    },
+    {
+      "criterion": "backward_compat",
+      "score": 0.95,
+      "evaluator": "vitest+manual",
+      "confidence": 0.9,
+      "notes": "integration/brief-bootstrap.test.ts (7 tests) confirms v1.0 fixtures validate, gate behaviour identical with and without RUBRIX_SKIP_BRIEF=1, no Intent brief section in report when contract lacks brief; manual rubrix validate examples/* passes."
+    },
+    {
+      "criterion": "dogfood_passed",
+      "score": 0.9,
+      "evaluator": "rubrix-gate",
+      "confidence": 0.85,
+      "notes": "Repo-root rubrix.json walked through CLI: IntentDrafted (PR #1) → RubricDrafted/Locked + MatrixLocked (PR #2) → PlanLocked + Scoring (PR #3) → Passed via rubrix gate ./rubrix.json --apply (this commit)."
+    },
+    {
+      "criterion": "enterprise_clean_release",
+      "score": 0.9,
+      "evaluator": "manual",
+      "confidence": 0.85,
+      "notes": "git ls-files HEAD shows no .rubrix/, reports/, iteration-*, codex-review-*, transcript-*. .gitignore enforces these patterns. Per-run evidence (transcripts, hook events) ships only as evidence-bundle.tar.gz attached to the v1.1.0 GitHub Release with SHA-256 in the annotated tag message."
+    }
+  ],
+  "state": "Passed",
   "locks": {
     "rubric": true,
     "matrix": true,
-    "plan": false
+    "plan": true
   }
 }
