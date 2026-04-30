@@ -9,3 +9,6 @@ contact_links:
   - name: 🚀 최신 릴리스
     url: https://github.com/jaehoonE7877/rubrix/releases/latest
     about: 사용 중인 Rubrix 버전이 최신인지 확인해주세요. 이미 고쳐진 문제일 수 있습니다.
+  - name: 🔒 보안 취약점 신고
+    url: https://github.com/jaehoonE7877/rubrix/security/advisories/new
+    about: 보안 이슈는 공개 issue가 아니라 비공개 advisory로 제출해주세요. SECURITY.md 정책 참조.
