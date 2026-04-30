@@ -237,6 +237,60 @@ describe("brief init command", () => {
     expect(c.intent.brief?.axis_depth).toEqual({});
   });
 
+  it("merges --axis values with existing axis_depth on re-init (RUB-19)", () => {
+    const path = tmpPath();
+    briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "brownfield_feature",
+      situation: "internal_tool",
+      ambition: "production",
+      axis: ["security=deep", "data=deep"],
+    });
+    const code = briefInitCommand({ path, axis: ["ux=deep"] });
+    expect(code).toBe(0);
+    const c = loadContract(path);
+    expect(c.intent.brief?.axis_depth).toEqual({
+      security: "deep",
+      data: "deep",
+      ux: "deep",
+    });
+  });
+
+  it("re-init --axis overrides only the named axes, leaving the rest intact (RUB-19)", () => {
+    const path = tmpPath();
+    briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "brownfield_feature",
+      situation: "internal_tool",
+      ambition: "production",
+      axis: ["security=deep", "data=deep"],
+    });
+    const code = briefInitCommand({ path, axis: ["security=light"] });
+    expect(code).toBe(0);
+    const c = loadContract(path);
+    expect(c.intent.brief?.axis_depth?.security).toBe("light");
+    expect(c.intent.brief?.axis_depth?.data).toBe("deep");
+  });
+
+  it("re-init without --axis preserves existing axis_depth verbatim", () => {
+    const path = tmpPath();
+    briefInitCommand({
+      path,
+      summary: "x",
+      projectType: "brownfield_feature",
+      situation: "internal_tool",
+      ambition: "production",
+      axis: ["security=deep", "ux=light"],
+    });
+    const code = briefInitCommand({ path, ambition: "mvp" });
+    expect(code).toBe(0);
+    const c = loadContract(path);
+    expect(c.intent.brief?.ambition).toBe("mvp");
+    expect(c.intent.brief?.axis_depth).toEqual({ security: "deep", ux: "light" });
+  });
+
   it("upgrades an existing IntentDrafted contract idempotently", () => {
     const path = tmpPath();
     briefInitCommand({
