@@ -30,7 +30,7 @@
       {
         "id": "schema_clarity_additive",
         "description": "cli/schemas/rubrix.schema.json gains $defs.Clarity (score, threshold, deductions[code,message,weight], scored_at, scorer_version, artifact_hash, forced + audit fields) referenced from rubric/matrix/plan as optional. Deduction code is enum {vague_description, missing_evidence, unmeasurable_floor, dangling_reference, uncovered_axis}. v1.0 (examples/self-eval, examples/ios-refactor) and v1.1 fixtures continue to validate clean; clarity.score>1, deductions.code outside enum, forced=true without forced_at+force_reason, and non-64-hex artifact_hash all fail validation.",
-        "weight": 0.18,
+        "weight": 0.16,
         "floor": 0.7,
         "axis": "correctness",
         "verify": "vitest cli/tests/clarity-schema.test.ts"
@@ -52,7 +52,7 @@
       {
         "id": "threshold_lookup_axis_depth",
         "description": "resolveClarityThreshold(c, key, opts) returns base{rubric:0.75,matrix:0.80,plan:0.70} adjusted by max-modifier across all 5 axes (deep=+0.10, standard=0, light=-0.10). Override (CLI flag) takes precedence over axis_depth, clamped to [0,1]. RUBRIX_SKIP_BRIEF=1 and uncalibrated brief fall back to standard. ambition=demo forces all-light.",
-        "weight": 0.12,
+        "weight": 0.10,
         "floor": 0.7,
         "axis": "correctness",
         "verify": "vitest cli/tests/clarity-threshold.test.ts (8 tests)"
@@ -60,7 +60,7 @@
       {
         "id": "score_clarity_read_only",
         "description": "rubrix score-clarity <key> <path> emits a JSON object {artifact, artifact_hash, threshold, threshold_policy_version, scorer_version, score:null, deductions:[], scored_at, note} on stdout. Exit codes: 0 success, 2 invalid key/contract, 3 artifact missing in contract. Crucially: rubrix.json byte content is unchanged after the command runs (read-only contract).",
-        "weight": 0.13,
+        "weight": 0.11,
         "axis": "security",
         "verify": "vitest cli/tests/score-clarity.test.ts (7 tests, including byte-equivalence on rubrix.json)"
       },
@@ -74,15 +74,23 @@
       {
         "id": "validate_v12_enforcement",
         "description": "rubrix validate on a v1.2 contract (version >= 1.2.0) at state ∈ {RubricLocked, MatrixDrafted, MatrixLocked, PlanDrafted, PlanLocked, Scoring, Passed, Failed} fails with a v1.2-specific error if any locked artifact is missing clarity, or if clarity.score < clarity.threshold and clarity.forced!==true. forced=true with forced_at + force_reason validates as an audited bypass.",
-        "weight": 0.12,
+        "weight": 0.10,
         "floor": 0.7,
         "axis": "security",
         "verify": "vitest cli/tests/integration/clarity-version-gate.test.ts (7 tests)"
       },
       {
+        "id": "clarity_invariant_uniform_paths",
+        "description": "(codex review P2 follow-up) The v1.2 clarity invariant is enforced uniformly across every code path that trusts locks: rubrix validate, rubrix gate (refuses to evaluate when invariant is breached, exit 2), PreToolUse hook (blocks code-edits and /rubrix:score on a v1.2 contract missing clarity, while still allowing edits to rubrix.json itself so users can fix it), and UserPromptExpansion. Logic lives in cli/src/core/clarity-gate.ts (checkClarityInvariants + firstClarityViolation) and is consumed by validate.ts, gate.ts, and hooks/handlers.ts.",
+        "weight": 0.10,
+        "floor": 0.7,
+        "axis": "security",
+        "verify": "vitest cli/tests/clarity-gate.test.ts cli/tests/integration/clarity-hook-gate.test.ts"
+      },
+      {
         "id": "backward_compat_v10_v11",
         "description": "examples/self-eval/rubrix.json (v1.0, version='0.1.0', no brief) and examples/ios-refactor/rubrix.json (v1.0, no brief) continue to validate, gate, and report unchanged. v1.1 fixtures (version='0.1.0' + intent.brief) at PlanLocked also remain valid without clarity. The 173-test baseline is fully preserved.",
-        "weight": 0.10,
+        "weight": 0.08,
         "floor": 0.7,
         "axis": "correctness",
         "verify": "vitest cli/tests/integration/clarity-version-gate.test.ts -t 'read-compat' + manual rubrix validate examples/*/rubrix.json"

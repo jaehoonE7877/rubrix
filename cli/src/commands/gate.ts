@@ -8,6 +8,7 @@ import {
 } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
 import { resolveAxisDepth } from "../core/brief.ts";
+import { checkClarityInvariants } from "../core/clarity-gate.ts";
 
 export interface GateOptions {
   path: string;
@@ -99,6 +100,13 @@ export function gateCommand(opts: GateOptions): number {
     if (c.state !== "Scoring" && c.state !== "Passed" && c.state !== "Failed") {
       process.stderr.write(`gate refuses to run: state is ${c.state}, expected Scoring|Passed|Failed\n`);
       return 3;
+    }
+    const clarity = checkClarityInvariants(c);
+    if (!clarity.ok) {
+      process.stderr.write(
+        `gate refuses to trust locks: v1.2 clarity invariant breached:\n${clarity.errors.join("\n")}\n`,
+      );
+      return 2;
     }
     const result = evaluateGate(c, opts.env);
     if (opts.apply && c.state === "Scoring") {
