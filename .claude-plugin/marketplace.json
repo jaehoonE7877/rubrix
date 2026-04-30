@@ -13,7 +13,7 @@
         "repo": "jaehoonE7877/rubrix"
       },
       "description": "rubrix.json drives the lifecycle; hooks, CLI, skills, and subagents enforce it.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": {
         "name": "Jaehoon Seo"
       },
