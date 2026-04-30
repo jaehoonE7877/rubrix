@@ -8,6 +8,7 @@ import { reportCommand } from "./commands/report.ts";
 import { stateGetCommand, stateSetCommand } from "./commands/state.ts";
 import { lockCommand } from "./commands/lock.ts";
 import { hookCommand } from "./commands/hook.ts";
+import { briefGetCommand, briefInitCommand } from "./commands/brief.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(here, "../package.json"), "utf8")) as { version: string };
@@ -67,6 +68,59 @@ program
   .action(async (event: string) => {
     process.exit(await hookCommand({ event }));
   });
+
+const briefCmd = program.command("brief").description("Initialize or read intent.brief (v1.1+ depth calibration)");
+briefCmd
+  .command("init <path>")
+  .description("Create or upgrade an IntentDrafted contract with a calibrated brief")
+  .option("--summary <text>", "intent.summary (required when creating a new file)")
+  .option("--project-type <value>", "greenfield|brownfield_refactor|brownfield_feature|infra|doc")
+  .option("--situation <value>", "prototype|internal_tool|customer_facing|regulated")
+  .option("--ambition <value>", "demo|mvp|production|hardened")
+  .option(
+    "--axis <pair...>",
+    "axis depth as name=depth (e.g. --axis security=deep --axis ux=light); repeatable",
+  )
+  .option("--risk <value...>", "risk modifier (free-form); repeatable")
+  .option("--details <text>", "intent.details")
+  .option("--owner <text>", "intent.owner")
+  .option("--json", "emit JSON output")
+  .action((path: string, opts: BriefInitCliOptions) => {
+    process.exit(
+      briefInitCommand({
+        path,
+        summary: opts.summary,
+        projectType: opts.projectType,
+        situation: opts.situation,
+        ambition: opts.ambition,
+        axis: opts.axis,
+        risk: opts.risk,
+        details: opts.details,
+        owner: opts.owner,
+        json: opts.json,
+      }),
+    );
+  });
+briefCmd
+  .command("get <path>")
+  .description("Read intent.brief; with --axis, print only that axis's effective depth")
+  .option("--axis <name>", "security|data|correctness|ux|perf")
+  .option("--json", "emit JSON output")
+  .action((path: string, opts: { axis?: string; json?: boolean }) => {
+    process.exit(briefGetCommand({ path, axis: opts.axis, json: opts.json }));
+  });
+
+interface BriefInitCliOptions {
+  summary?: string;
+  projectType?: string;
+  situation?: string;
+  ambition?: string;
+  axis?: string[];
+  risk?: string[];
+  details?: string;
+  owner?: string;
+  json?: boolean;
+}
 
 program.parseAsync(process.argv).catch((err) => {
   process.stderr.write((err instanceof Error ? err.message : String(err)) + "\n");

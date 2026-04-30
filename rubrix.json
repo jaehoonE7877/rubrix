@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0",
+  "intent": {
+    "summary": "Ship Rubrix v1.1.0 — Intent Elicitation & Depth Calibration",
+    "details": "Replace one-line intent.summary with depth-calibrated brief; add /rubrix:brief skill, brief-interviewer agent, PreToolUse gate, and axis_depth floor in scoring. State machine unchanged; intent.summary deprecated-but-preserved.",
+    "owner": "rubrix",
+    "brief": {
+      "calibrated": true,
+      "project_type": "brownfield_feature",
+      "situation": "internal_tool",
+      "ambition": "production",
+      "risk_modifiers": [
+        "new_public_schema",
+        "pretooluse_breaking_gate",
+        "dogfooding_bootstrap"
+      ],
+      "axis_depth": {
+        "security": "deep",
+        "correctness": "deep",
+        "data": "standard",
+        "ux": "standard",
+        "perf": "standard"
+      }
+    }
+  },
+  "state": "IntentDrafted",
+  "locks": {
+    "rubric": false,
+    "matrix": false,
+    "plan": false
+  }
+}

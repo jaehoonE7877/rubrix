@@ -14,12 +14,24 @@ import Ajv2020, { type ValidateFunction, type ErrorObject } from "ajv/dist/2020.
 import addFormats from "ajv-formats";
 import type { Locks, State } from "./state.ts";
 
+export type Axis = "security" | "data" | "correctness" | "ux" | "perf";
+export type AxisDepth = "light" | "standard" | "deep";
+
+export interface IntentBrief {
+  calibrated: boolean;
+  project_type?: "greenfield" | "brownfield_refactor" | "brownfield_feature" | "infra" | "doc";
+  situation?: "prototype" | "internal_tool" | "customer_facing" | "regulated";
+  ambition?: "demo" | "mvp" | "production" | "hardened";
+  risk_modifiers?: string[];
+  axis_depth?: Partial<Record<Axis, AxisDepth>>;
+}
+
 export interface RubrixContract {
   version: string;
-  intent: { summary: string; details?: string; owner?: string };
+  intent: { summary: string; details?: string; owner?: string; brief?: IntentBrief };
   rubric?: {
     threshold: number;
-    criteria: Array<{ id: string; description: string; weight: number; floor?: number; verify?: string }>;
+    criteria: Array<{ id: string; description: string; weight: number; floor?: number; axis?: Axis; verify?: string }>;
   };
   matrix?: { rows: Array<{ id: string; criterion: string; evidence_required: string; verify?: string }> };
   plan?: { steps: Array<{ id: string; action: string; produces?: string; covers?: string[] }> };
