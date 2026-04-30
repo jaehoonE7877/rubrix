@@ -48,7 +48,9 @@ export function briefInitCommand(opts: BriefInitOptions): number {
         project_type: partial.project_type ?? existing.intent.brief?.project_type,
         situation: partial.situation ?? existing.intent.brief?.situation,
         ambition: partial.ambition ?? existing.intent.brief?.ambition,
-        axis_depth: partial.axis_depth ?? existing.intent.brief?.axis_depth ?? {},
+        axis_depth: partial.axis_depth
+          ? { ...(existing.intent.brief?.axis_depth ?? {}), ...partial.axis_depth }
+          : (existing.intent.brief?.axis_depth ?? {}),
         ...(partial.risk_modifiers !== undefined
           ? { risk_modifiers: partial.risk_modifiers }
           : existing.intent.brief?.risk_modifiers !== undefined
