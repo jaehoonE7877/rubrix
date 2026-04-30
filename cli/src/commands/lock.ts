@@ -9,6 +9,7 @@ export interface LockOptions {
   path: string;
   key: string;
   threshold?: number;
+  force?: string;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -57,22 +58,37 @@ export function lockCommand(opts: LockOptions): number {
       }
     }
     if (isV12Plus(c)) {
+      const force = typeof opts.force === "string" ? opts.force.trim() : undefined;
+      if (opts.force !== undefined && (force === undefined || force.length === 0)) {
+        process.stderr.write(`cannot lock ${opts.key}: --force requires a non-empty reason (e.g. --force "vendor freeze blocking refactor")\n`);
+        return 2;
+      }
       const threshold = resolveClarityThreshold(c, opts.key, {
         override: opts.threshold,
         env: opts.env,
       });
       const result = scoreClarity({ contract: c, key: opts.key, threshold });
-      if (!result.ok) {
+      if (!result.ok && force === undefined) {
         process.stderr.write(
           `cannot lock ${opts.key}: clarity ${result.clarity.score} below threshold ${result.clarity.threshold}\n` +
             result.clarity.deductions
               .map((d) => `  - [${d.code}] ${d.message} (weight ${d.weight})`)
               .join("\n") +
-            `\n  hint: refine the ${opts.key} and re-lock, or run \`rubrix lock ${opts.key} ${opts.path} --force <reason>\` (PR #3) to audit a forced lock.\n`,
+            `\n  hint: refine the ${opts.key} and re-lock, or run \`rubrix lock ${opts.key} ${opts.path} --force "<reason>"\` to audit a forced lock.\n`,
         );
         return 3;
       }
-      c[opts.key]!.clarity = result.clarity;
+      const clarity = result.clarity;
+      if (force !== undefined) {
+        clarity.forced = true;
+        clarity.forced_at = new Date().toISOString();
+        clarity.force_reason = force;
+        process.stderr.write(
+          `!! forced lock: ${opts.key} score=${clarity.score} threshold=${clarity.threshold} reason="${force}"\n` +
+            `   audit trail persisted at c.${opts.key}.clarity (forced=true, forced_at=${clarity.forced_at}). Use \`rubrix report\` to review forced locks.\n`,
+        );
+      }
+      c[opts.key]!.clarity = clarity;
     }
     c.locks[opts.key] = true;
     c.state = to;

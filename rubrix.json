@@ -244,10 +244,190 @@
       "forced": false
     }
   },
-  "state": "MatrixLocked",
+  "plan": {
+    "steps": [
+      {
+        "id": "step-pr1-schema-types-helpers",
+        "action": "PR #1 (RUB-22): add $defs.Clarity to cli/schemas/rubrix.schema.json with deduction-code enum + forced/forced_at/force_reason invariant; export Clarity, ClarityDeduction, ClarityDeductionCode, ArtifactKey from cli/src/core/contract.ts; add cli/src/core/version.ts (parseVersion, compareVersions, isAtLeast, isV12Plus); add resolveClarityThreshold + axis-depth modifier table to cli/src/core/brief.ts.",
+        "produces": "PR #28 commit 8151c7b",
+        "covers": [
+          "row-schema-clarity-additive",
+          "row-clarity-type-exported",
+          "row-semver-version-helper",
+          "row-threshold-lookup"
+        ]
+      },
+      {
+        "id": "step-pr1-score-clarity-cli",
+        "action": "PR #1 (RUB-22): add cli/src/commands/score-clarity.ts as a read-only placeholder (artifact_hash + threshold only); register `rubrix score-clarity <key> <path>` with --threshold + --json in cli/src/cli.ts; extend cli/src/commands/validate.ts to fail v1.2+ contracts at *Locked states without clarity.",
+        "produces": "PR #28 commit 8151c7b",
+        "covers": [
+          "row-score-clarity-read-only",
+          "row-score-clarity-deterministic",
+          "row-validate-v12",
+          "row-cli-registration"
+        ]
+      },
+      {
+        "id": "step-pr1-codex-uniform-paths",
+        "action": "PR #1 (RUB-22) codex review P2 follow-up: extract checkClarityInvariants + firstClarityViolation into cli/src/core/clarity-gate.ts; consume from cli/src/commands/validate.ts, cli/src/commands/gate.ts (refuses to evaluate when invariant breached), and cli/src/hooks/handlers.ts (PreToolUse + UserPromptExpansion block); allow editing rubrix.json itself even when invariant breached.",
+        "produces": "PR #28 commit a924fa8",
+        "covers": [
+          "row-clarity-uniform"
+        ]
+      },
+      {
+        "id": "step-pr2-clarity-scorer-and-lock-gate",
+        "action": "PR #2 (RUB-23): add agents/clarity-scorer.md (4-axis weighted spec, JSON-only, deterministic); implement scoreClarity heuristic stub in cli/src/core/clarity.ts (5 deduction codes, sorted, score = max(0, 1 − Σ weights)); wire isV12Plus + scoreClarity into cli/src/commands/lock.ts (exit 3 on score<threshold, persist clarity on success); replace score-clarity placeholder with real scorer; v1.0/v1.1 contracts skip the gate.",
+        "produces": "PR #29 commit 4d13604",
+        "covers": [
+          "row-clarity-scorer-stub",
+          "row-lock-v12-gate"
+        ]
+      },
+      {
+        "id": "step-pr2-codex-context-hash-cli-flag",
+        "action": "PR #2 (RUB-23) codex review P2 follow-ups: rewrite hashArtifact to canonicalize({key, body, context}) so axis_depth / criterion-id / row-id changes always produce a different hash; expose --threshold on the rubrix lock commander registration in cli.ts; update agents/clarity-scorer.md spec; add 2 regression tests in clarity-determinism.test.ts.",
+        "produces": "PR #29 commit db79fab",
+        "covers": [
+          "row-score-clarity-deterministic",
+          "row-cli-registration"
+        ]
+      },
+      {
+        "id": "step-pr3-force-audit-and-report",
+        "action": "PR #3 (RUB-24): add --force <reason> to cli/src/commands/lock.ts (persists forced=true + forced_at + force_reason; emits stderr audit warning); register --force on the rubrix lock commander in cli/src/cli.ts; extend cli/src/commands/report.ts with a v1.2-only Forced Locks section (artifact / score / threshold / forced_at / reason). Empty case prints 'No forced locks.'",
+        "produces": "PR (this) — feature/v1.2-pr3-force-audit-report-dogfood",
+        "covers": [
+          "row-lock-v12-gate",
+          "row-clarity-uniform"
+        ]
+      },
+      {
+        "id": "step-pr3-posttool-suggestion-surface",
+        "action": "PR #3 (RUB-24): extend cli/src/hooks/handlers.ts:handlePostToolUse to emit <rubrix-suggestion> blocks via additionalContext for (a) the most recent rubrix lock failure (parses 'below threshold' + [code] lines from tool_response stderr) and (b) any forced lock currently persisted on the contract. v1.0/v1.1 contracts emit nothing.",
+        "produces": "PR (this)",
+        "covers": [
+          "row-clarity-uniform"
+        ]
+      },
+      {
+        "id": "step-pr3-dogfood-passed",
+        "action": "PR #3 (RUB-24): walk root rubrix.json from MatrixLocked → PlanLocked (via lock plan, no --force) → Scoring → Passed by recording per-criterion scores backed by PR #28 / PR #29 evidence and running `rubrix gate ./rubrix.json --apply`. Final state=Passed with all locks=true and Forced Locks section empty.",
+        "produces": "PR (this)",
+        "covers": [
+          "row-tests-green",
+          "row-bc-v10-v11"
+        ]
+      }
+    ],
+    "clarity": {
+      "score": 1,
+      "threshold": 0.8,
+      "deductions": [],
+      "scored_at": "2026-04-30T17:53:15.838Z",
+      "scorer_version": "clarity-scorer/1.0",
+      "artifact_hash": "67ca50e1d17843fbf447e992f278c42d63a8dac7bea309b55dc7abd6c1db3bcf",
+      "forced": false
+    }
+  },
+  "scores": [
+    {
+      "criterion": "schema_clarity_additive",
+      "score": 0.95,
+      "evaluator": "vitest+manual",
+      "confidence": 0.9,
+      "notes": "8 clarity-schema.test.ts assertions pass; v1.0 (examples/self-eval, examples/ios-refactor) and v1.1 fixtures (with brief, no clarity) keep validating clean; clarity.score>1, deductions.code outside enum, forced=true without forced_at+force_reason, and non-64-hex artifact_hash all reject as expected."
+    },
+    {
+      "criterion": "clarity_type_exported",
+      "score": 0.95,
+      "evaluator": "vitest+tsc",
+      "confidence": 0.9,
+      "notes": "RubrixContract / Clarity / ClarityDeduction / ClarityDeductionCode / ArtifactKey are exported from cli/src/core/contract.ts and consumed across clarity.ts, clarity-gate.ts, validate.ts, lock.ts, score-clarity.ts, brief.ts, and the entire test suite without any type errors under the vitest tsx loader."
+    },
+    {
+      "criterion": "semver_version_helper",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "isV12Plus correctly returns false for version='0.1.0' (v1.0/v1.1 fixtures) and true for version='1.2.0' (root dogfood). compareVersions and parseVersion exercised indirectly via clarity-threshold.test.ts (8 tests) plus clarity-hook-gate.test.ts read-compat assertions."
+    },
+    {
+      "criterion": "threshold_lookup_axis_depth",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "clarity-threshold.test.ts (8 tests) covers base / +0.10 deep / max-modifier across multiple deeps / -0.10 light via ambition=demo / override > axis_depth / [0,1] clamping / RUBRIX_SKIP_BRIEF=1 fallback / uncalibrated brief fallback."
+    },
+    {
+      "criterion": "score_clarity_read_only",
+      "score": 0.95,
+      "evaluator": "vitest+manual",
+      "confidence": 0.9,
+      "notes": "score-clarity.test.ts (8 tests) covers invalid key (exit 2), missing artifact (exit 3), v1.2 success path with numeric score and scorer_active=true, v1.0/v1.1 read-compat scorer_active=false with score=1, byte-equivalent rubrix.json before/after, --threshold override, and axis_depth.deep raising threshold to 0.85 for rubric."
+    },
+    {
+      "criterion": "score_clarity_hash_deterministic",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "After codex review P2-1 fix (commit db79fab), hashArtifact hashes canonicalize({key, body, context}). clarity-determinism.test.ts proves: byte-equivalent JSON across runs (excluding scored_at); ordered deduction codes stable; pre-existing clarity stripped during hashing; same body + different axis_depth → different hash; same matrix body + renamed criterion id → different hash."
+    },
+    {
+      "criterion": "clarity_scorer_stub_deterministic",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.85,
+      "notes": "clarity-scorer.test.ts (10 tests) verifies all 5 deduction codes fire on the right triggers, sort order is stable (vague→missing→unmeasurable→dangling→uncovered), score = max(0, 1 − Σ weights) is clamped to [0,1], and canonicalize is key-order invariant. Stub is intentional placeholder for the LLM-side clarity-scorer agent (see agents/clarity-scorer.md)."
+    },
+    {
+      "criterion": "lock_v12_clarity_gate",
+      "score": 0.95,
+      "evaluator": "vitest+manual",
+      "confidence": 0.9,
+      "notes": "lock-clarity-gate.test.ts (4 tests) confirms vague rubric → exit 3 + deductions on stderr + rubrix.json byte-equivalent; well-formed v1.2 rubric → locks + persists clarity (forced=false); v1.0 contract → scorer skipped; --threshold override lowers the bar. Verified manually by walking the dogfood through RubricLocked → MatrixLocked → PlanLocked without forced flags."
+    },
+    {
+      "criterion": "validate_v12_enforcement",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "clarity-version-gate.test.ts (7 tests) confirms v1.0/v1.1 read-compat at PlanLocked, v1.2 RubricLocked w/o clarity → fail, v1.2 PlanLocked surfaces violations across every locked artifact, score<threshold + forced=false → fail, and forced=true + force_reason audit bypass passes."
+    },
+    {
+      "criterion": "clarity_invariant_uniform_paths",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "After codex review P2 fix on PR #1 (commit a924fa8), checkClarityInvariants is shared across validate.ts, gate.ts, and hooks/handlers.ts. clarity-gate.test.ts (7 tests) + clarity-hook-gate.test.ts (7 tests) prove PreToolUse blocks Edit / score on v1.2 contracts missing clarity but allows editing rubrix.json itself, UserPromptExpansion mirrors the block, gate exits 2 on a v1.2 Scoring contract missing clarity, and v1.0 contracts pass through unchanged."
+    },
+    {
+      "criterion": "backward_compat_v10_v11",
+      "score": 0.95,
+      "evaluator": "vitest+manual",
+      "confidence": 0.9,
+      "notes": "Both examples/self-eval/rubrix.json and examples/ios-refactor/rubrix.json continue to pass `node cli/bin/rubrix.js validate` (only an existing v1.0 brief warning on ios-refactor, never an error). The 173-test pre-v1.2 baseline stays green; v1.0/v1.1 contracts skip every v1.2 path (scorer, validate enforcement, gate, hook block)."
+    },
+    {
+      "criterion": "cli_registration_score_clarity",
+      "score": 0.95,
+      "evaluator": "manual",
+      "confidence": 0.9,
+      "notes": "After codex review P2-2 fix on PR #2 (commit db79fab), `node cli/bin/rubrix.js score-clarity rubric ./rubrix.json` and `node cli/bin/rubrix.js lock --threshold 0 plan ./rubrix.json` are both reachable; non-numeric --threshold throws at commander parse time; PR #3 added --force <reason> on rubrix lock with audit-warning stderr."
+    },
+    {
+      "criterion": "tests_green_no_regression",
+      "score": 0.95,
+      "evaluator": "vitest",
+      "confidence": 0.9,
+      "notes": "`cd cli && npm test` reports 0 failed and 0 skipped tests across PR #1/#2/#3 commits. PR #1 added 44 tests (clarity-schema, clarity-threshold, score-clarity, integration/clarity-version-gate, clarity-gate, integration/clarity-hook-gate); PR #2 added 18 (clarity-scorer, integration/lock-clarity-gate, integration/clarity-determinism); PR #3 adds force-audit + report-forced + post-tool-deduction tests on top."
+    }
+  ],
+  "state": "Passed",
   "locks": {
     "rubric": true,
     "matrix": true,
-    "plan": false
+    "plan": true
   }
 }
