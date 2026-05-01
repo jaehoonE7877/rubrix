@@ -380,6 +380,66 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
+    it("(codex follow-up #6 P1) PreToolUse blocks `rubrix report $'--out=src/foo.ts'` (ANSI-C quoting expansion)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} $'--out=src/foo.ts'` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #6 P1) PreToolUse blocks `rubrix report {--out=src/foo.ts,}` (brace expansion)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} {--out=src/foo.ts,}` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #6 P1) PreToolUse blocks `rubrix report ~/foo` (tilde expansion)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} --out ~/.something` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #6 P1) PreToolUse blocks `rubrix report *.json` (glob expansion)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report *.json` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #6 P2) PreToolUse blocks `node .cli/bin/rubrix.js lock ...` (single-dot prefix is NOT bundled)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `node .cli/bin/rubrix.js lock plan ${path}` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
     it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);

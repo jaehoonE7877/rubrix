@@ -53,7 +53,7 @@ const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
 const RUBRIX_RECOVERY_SUBCMDS = new Set([
   "lock", "report", "validate", "score-clarity", "state", "gate", "brief",
 ]);
-const BUNDLED_RUBRIX_JS = /^\.{0,2}\/?cli\/bin\/rubrix\.js$/;
+const BUNDLED_RUBRIX_JS_PATHS = new Set(["cli/bin/rubrix.js", "./cli/bin/rubrix.js"]);
 
 function tokenizeShellSafe(cmd: string): string[] | null {
   const tokens: string[] = [];
@@ -86,8 +86,8 @@ function tokenizeShellSafe(cmd: string): string[] | null {
       i++;
       continue;
     }
-    if (ch === "$" && i + 1 < cmd.length && cmd[i + 1] === "(") return null;
-    if (ch === ";" || ch === "&" || ch === "|" || ch === "<" || ch === ">" || ch === "`" || ch === "\n" || ch === "\r") return null;
+    if (ch === "$" || ch === "`" || ch === "{" || ch === "}" || ch === "~" || ch === "*" || ch === "?" || ch === "[" || ch === "]") return null;
+    if (ch === ";" || ch === "&" || ch === "|" || ch === "<" || ch === ">" || ch === "\n" || ch === "\r") return null;
     if (ch === " " || ch === "\t") {
       if (hasContent) { tokens.push(cur); cur = ""; hasContent = false; }
       continue;
@@ -112,8 +112,7 @@ function isRubrixRecoveryBash(input: HookInput): boolean {
     subCmdIdx = 1;
   } else if (argv[0] === "node" && argv.length >= 3) {
     const scriptPath = argv[1] as string;
-    if (scriptPath.includes("..")) return false;
-    if (!BUNDLED_RUBRIX_JS.test(scriptPath)) return false;
+    if (!BUNDLED_RUBRIX_JS_PATHS.has(scriptPath)) return false;
     subCmdIdx = 2;
   } else {
     return false;
