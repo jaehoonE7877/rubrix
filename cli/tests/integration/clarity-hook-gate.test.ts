@@ -645,5 +645,24 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       });
       expect(glob.decision).toBe("allow");
     });
+
+    it("(codex follow-up #15 P2) PreToolUse allows LS and NotebookRead on clarity breach (extended read-only allowlist)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const ls = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "LS",
+        tool_input: { path: "/tmp" },
+      });
+      expect(ls.decision).toBe("allow");
+      const nb = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "NotebookRead",
+        tool_input: { notebook_path: "/tmp/nb.ipynb" },
+      });
+      expect(nb.decision).toBe("allow");
+    });
   });
 });

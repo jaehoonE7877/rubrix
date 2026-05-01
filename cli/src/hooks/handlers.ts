@@ -47,7 +47,7 @@ export interface HookDecision {
 }
 
 const CODE_EDITING_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
-const READ_ONLY_TOOLS = new Set(["Read", "Glob", "Grep"]);
+const READ_ONLY_TOOLS = new Set(["Read", "Glob", "Grep", "LS", "NotebookRead"]);
 const SCORE_TRIGGERS = new Set(["/score", "score", "/rubrix:score"]);
 const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
 const RUBRIX_RECOVERY_SUBCMDS = new Set([
