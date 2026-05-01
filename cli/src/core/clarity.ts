@@ -94,7 +94,7 @@ export interface ScoreClarityResult {
 
 export function scoreClarity(input: ScoreClarityInput): ScoreClarityResult {
   const { contract, key, threshold } = input;
-  const env = input.env ?? {};
+  const env = input.env ?? process.env;
   const deductions: ClarityDeduction[] = [];
   switch (key) {
     case "rubric":
