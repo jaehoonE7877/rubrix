@@ -59,7 +59,7 @@ export function scoreClarityCommand(opts: ScoreClarityOptions): number {
   if (!isV12Plus(contract)) {
     const out: ScoreClarityOutput = {
       artifact: key,
-      artifact_hash: hashArtifact(contract, key),
+      artifact_hash: hashArtifact(contract, key, env),
       threshold,
       threshold_policy_version: THRESHOLD_POLICY_VERSION,
       scorer_version: SCORER_VERSION,

@@ -51,7 +51,7 @@ const READ_ONLY_TOOLS = new Set(["Read", "Glob", "Grep"]);
 const SCORE_TRIGGERS = new Set(["/score", "score", "/rubrix:score"]);
 const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
 const RUBRIX_RECOVERY_SUBCMDS = new Set([
-  "lock", "report", "validate", "score-clarity", "state", "gate", "brief",
+  "lock", "report", "validate", "score-clarity",
 ]);
 const BUNDLED_RUBRIX_JS_PATHS = new Set(["cli/bin/rubrix.js", "./cli/bin/rubrix.js"]);
 

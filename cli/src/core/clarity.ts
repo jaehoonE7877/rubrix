@@ -21,7 +21,7 @@ export function canonicalize(value: unknown): string {
   return JSON.stringify(sortKeys(value));
 }
 
-export function hashArtifact(contract: RubrixContract, key: ArtifactKey): string {
+export function hashArtifact(contract: RubrixContract, key: ArtifactKey, env: NodeJS.ProcessEnv = {}): string {
   const body = contract[key];
   if (body === undefined) {
     throw new Error(`cannot hash missing artifact: ${key}`);
@@ -29,18 +29,19 @@ export function hashArtifact(contract: RubrixContract, key: ArtifactKey): string
   const canonical = canonicalize({
     key,
     body: stripClarity(body),
-    context: scoringContext(contract, key),
+    context: scoringContext(contract, key, env),
   });
   return createHash("sha256").update(canonical).digest("hex");
 }
 
-function scoringContext(contract: RubrixContract, key: ArtifactKey): unknown {
+function scoringContext(contract: RubrixContract, key: ArtifactKey, env: NodeJS.ProcessEnv): unknown {
   switch (key) {
     case "rubric":
       return {
         axis_depth: contract.intent.brief?.axis_depth ?? null,
         ambition: contract.intent.brief?.ambition ?? null,
         calibrated: contract.intent.brief?.calibrated ?? false,
+        effective_axis_depth: resolveAxisDepth(contract, env),
       };
     case "matrix":
       return {
@@ -111,7 +112,7 @@ export function scoreClarity(input: ScoreClarityInput): ScoreClarityResult {
   const totalWeight = deductions.reduce((acc, d) => acc + d.weight, 0);
   const rawScore = 1 - totalWeight;
   const score = round4(rawScore < 0 ? 0 : rawScore);
-  const artifact_hash = hashArtifact(contract, key);
+  const artifact_hash = hashArtifact(contract, key, env);
   const scored_at = (input.now ?? new Date()).toISOString();
   const clarity: Clarity = {
     score,

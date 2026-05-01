@@ -440,6 +440,37 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
+    it("(codex follow-up #7 P2) PreToolUse blocks `rubrix brief init ...` (mutating subcommand removed from recovery allowlist)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix brief init src/new.ts --summary x --project-type doc --situation internal_tool --ambition demo` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #7 P2) PreToolUse blocks `rubrix state set ...` and `rubrix gate --apply` (mutating subcommands removed)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const setDecision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix state set ${path} Passed` },
+      });
+      expect(setDecision.decision).toBe("block");
+      const applyDecision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix gate ${path} --apply` },
+      });
+      expect(applyDecision.decision).toBe("block");
+    });
+
     it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
