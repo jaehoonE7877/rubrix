@@ -147,7 +147,7 @@ function tokenizeShellSafe(cmd: string): string[] | null {
 
 const SAFE_ENV_PREFIX = "RUBRIX_SKIP_BRIEF=1";
 
-function isRubrixRecoveryBash(input: HookInput): boolean {
+function isRubrixRecoveryBash(input: HookInput, contractPath: string): boolean {
   if (input.tool_name !== "Bash") return false;
   const ti = input.tool_input as Record<string, unknown> | undefined;
   const raw = typeof ti?.command === "string" ? ti.command.trim() : "";
@@ -163,10 +163,21 @@ function isRubrixRecoveryBash(input: HookInput): boolean {
   const subCmdIdx = 2;
   const sub = argv[subCmdIdx];
   if (typeof sub !== "string") return false;
+  const cwd = typeof input.cwd === "string" ? input.cwd : process.cwd();
   if (sub === "state") {
-    return argv[subCmdIdx + 1] === "set" && argv[subCmdIdx + 3] === "PlanDrafted";
+    if (argv[subCmdIdx + 1] !== "set") return false;
+    if (argv[subCmdIdx + 3] !== "PlanDrafted") return false;
+    const targetPath = argv[subCmdIdx + 2];
+    return typeof targetPath === "string" && resolve(cwd, targetPath) === resolve(contractPath);
   }
   if (!RUBRIX_RECOVERY_SUBCMDS.has(sub)) return false;
+  if (sub === "lock") {
+    const targetPath = argv[subCmdIdx + 2];
+    if (typeof targetPath !== "string" || resolve(cwd, targetPath) !== resolve(contractPath)) return false;
+  } else {
+    const targetPath = argv[subCmdIdx + 1];
+    if (typeof targetPath !== "string" || resolve(cwd, targetPath) !== resolve(contractPath)) return false;
+  }
   for (const arg of argv.slice(subCmdIdx + 1)) {
     if (arg === "--out" || arg.startsWith("--out=")) return false;
   }
@@ -338,7 +349,7 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const violation = firstClarityViolation(contract);
   if (violation !== null) {
     const isReadOnlyTool = READ_ONLY_TOOLS.has(tool);
-    const isRecoveryBash = isRubrixRecoveryBash(input);
+    const isRecoveryBash = isRubrixRecoveryBash(input, path);
     const isExemptFromBreachGate = editingContractItself || isReadOnlyTool || isRecoveryBash;
     const triggersGatedSkill = !isCodeEdit && (promptInvokesRubric(prompt) || promptInvokesScore(prompt));
     if (!isExemptFromBreachGate || triggersGatedSkill) {

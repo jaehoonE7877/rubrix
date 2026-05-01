@@ -678,6 +678,32 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       }
     });
 
+    it("(codex follow-up #20 P2) PreToolUse blocks recovery Bash that targets a different rubrix.json than the breached one", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const breachedPath = tempContractFile(c);
+      const otherPath = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(breachedPath),
+        contract_path: breachedPath,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js lock plan ${otherPath} --force "audit"` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #20 P2) PreToolUse blocks `state set` whose target path differs from the breached contract", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const breachedPath = tempContractFile(c);
+      const otherPath = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(breachedPath),
+        contract_path: breachedPath,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js state set ${otherPath} PlanDrafted` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
     it("(codex follow-up #17 P2) PreToolUse blocks bare `rubrix lock ...` (PATH-trusting form is unsafe — workspace-local rubrix could shadow bundled CLI)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
