@@ -170,5 +170,62 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
       expect(decision.reason).toContain("v1.2 clarity invariant");
     });
+
+    it("(codex follow-up P2) PreToolUse blocks Bash that is NOT a rubrix CLI invocation on clarity breach (no shell-write bypass)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: "cat > src/foo.ts <<EOF\nexport const x = 1;\nEOF" },
+      });
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("v1.2 clarity invariant");
+    });
+
+    it("(codex follow-up P2) PreToolUse blocks Bash sed -i (in-place file mutation) on clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: "sed -i 's/old/new/' src/foo.ts" },
+      });
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("v1.2 clarity invariant");
+    });
+
+    it("(codex follow-up P2) PreToolUse allows `node cli/bin/rubrix.js report` Bash on clarity breach (rubrix CLI recovery)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js report ${path}` },
+      });
+      expect(decision.decision).toBe("allow");
+    });
+
+    it("(codex follow-up P2) PreToolUse allows Glob/Grep diagnostics on clarity breach (read-only tools)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const grep = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Grep",
+        tool_input: { pattern: "TODO" },
+      });
+      expect(grep.decision).toBe("allow");
+      const glob = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Glob",
+        tool_input: { pattern: "**/*.ts" },
+      });
+      expect(glob.decision).toBe("allow");
+    });
   });
 });

@@ -47,8 +47,17 @@ export interface HookDecision {
 }
 
 const CODE_EDITING_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
+const READ_ONLY_TOOLS = new Set(["Read", "Glob", "Grep"]);
 const SCORE_TRIGGERS = new Set(["/score", "score", "/rubrix:score"]);
 const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
+const RUBRIX_RECOVERY_CMD = /\brubrix(?:\.js)?\s+(?:lock|report|validate|score-clarity|state|gate|brief)\b/;
+
+function isRubrixRecoveryBash(input: HookInput): boolean {
+  if (input.tool_name !== "Bash") return false;
+  const ti = input.tool_input as Record<string, unknown> | undefined;
+  const cmd = typeof ti?.command === "string" ? ti.command : "";
+  return RUBRIX_RECOVERY_CMD.test(cmd);
+}
 
 function promptInvokesScore(prompt: string): boolean {
   return promptInvokes(prompt, SCORE_TRIGGERS);
@@ -212,12 +221,14 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const isCodeEdit = CODE_EDITING_TOOLS.has(tool);
   const editingContractItself = isCodeEdit && targetsContract(input, path);
   const violation = firstClarityViolation(contract);
-  const violatesOnGatedSurface = violation !== null && (
-    (isCodeEdit && !editingContractItself) ||
-    (!isCodeEdit && (promptInvokesRubric(prompt) || promptInvokesScore(prompt)))
-  );
-  if (violatesOnGatedSurface && violation !== null) {
-    return { decision: "block", reason: reasonForClarityBreach(violation), additionalContext: ctx };
+  if (violation !== null) {
+    const isReadOnlyTool = READ_ONLY_TOOLS.has(tool);
+    const isRecoveryBash = isRubrixRecoveryBash(input);
+    const isExemptFromBreachGate = editingContractItself || isReadOnlyTool || isRecoveryBash;
+    const triggersGatedSkill = !isCodeEdit && (promptInvokesRubric(prompt) || promptInvokesScore(prompt));
+    if (!isExemptFromBreachGate || triggersGatedSkill) {
+      return { decision: "block", reason: reasonForClarityBreach(violation), additionalContext: ctx };
+    }
   }
   if (!isCodeEdit && promptInvokesRubric(prompt)) {
     if (!calibrated && !isBriefSkipEnv()) {
