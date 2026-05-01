@@ -9,6 +9,7 @@ import { stateGetCommand, stateSetCommand } from "./commands/state.ts";
 import { lockCommand } from "./commands/lock.ts";
 import { hookCommand } from "./commands/hook.ts";
 import { briefGetCommand, briefInitCommand } from "./commands/brief.ts";
+import { scoreClarityCommand } from "./commands/score-clarity.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(here, "../package.json"), "utf8")) as { version: string };
@@ -60,6 +61,19 @@ program
   .description("Lock rubric|matrix|plan and advance to the *Locked state")
   .action((key: string, path: string) => {
     process.exit(lockCommand({ key, path }));
+  });
+
+program
+  .command("score-clarity <key> <path>")
+  .description("v1.2+: read-only clarity score for rubric|matrix|plan (hash + threshold; never mutates rubrix.json)")
+  .option("--threshold <n>", "override the resolved threshold (0-1)", (raw) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) throw new Error(`--threshold must be a number, got '${raw}'`);
+    return n;
+  })
+  .option("--json", "emit JSON output (default; reserved for symmetry with other commands)")
+  .action((key: string, path: string, opts: { threshold?: number; json?: boolean }) => {
+    process.exit(scoreClarityCommand({ key, path, threshold: opts.threshold, json: opts.json }));
   });
 
 program

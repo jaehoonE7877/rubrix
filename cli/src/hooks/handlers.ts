@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { ContractError, loadContract } from "../core/contract.ts";
+import { ContractError, loadContract, type RubrixContract } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
+import { firstClarityViolation } from "../core/clarity-gate.ts";
 
 export type HookEvent =
   | "SessionStart"
@@ -120,6 +121,10 @@ function reasonForRubricBlocked(): string {
   return "/rubrix:rubric blocked: intent.brief is not yet calibrated. Run /rubrix:brief first to calibrate intent (or set RUBRIX_SKIP_BRIEF=1).";
 }
 
+function reasonForClarityBreach(violation: string): string {
+  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`rubrix lock <key> <path>\`) or audit a forced lock (\`rubrix lock <key> <path> --force <reason>\`) before continuing.`;
+}
+
 function suggestionForBrief(): string {
   return "<rubrix-suggestion>intent.brief is not calibrated yet — run /rubrix:brief before /rubrix:rubric (or export RUBRIX_SKIP_BRIEF=1 to bypass).</rubrix-suggestion>";
 }
@@ -147,15 +152,24 @@ export function handleUserPromptExpansion(input: HookInput): HookDecision {
   let ctx = "";
   let locksPlan: boolean | null = null;
   let needsBriefHint = false;
+  let clarityBreach: string | null = null;
   try {
     const c = loadContract(path);
     ctx = buildLifecycleContext(c.state, c.locks);
     locksPlan = c.locks.plan;
     needsBriefHint = c.state === "IntentDrafted" && !isCalibrated(c) && !isBriefSkipEnv();
+    clarityBreach = firstClarityViolation(c);
   } catch {
     return {};
   }
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
+  if (clarityBreach && (promptInvokesScore(prompt) || promptInvokesRubric(prompt))) {
+    return {
+      decision: "block",
+      reason: reasonForClarityBreach(clarityBreach),
+      additionalContext: ctx,
+    };
+  }
   if (promptInvokesScore(prompt) && locksPlan === false) {
     return {
       decision: "block",
@@ -182,11 +196,12 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   let state: State;
   let locks: Locks;
   let calibrated = false;
+  let contract: RubrixContract;
   try {
-    const c = loadContract(path);
-    state = c.state;
-    locks = c.locks;
-    calibrated = isCalibrated(c);
+    contract = loadContract(path);
+    state = contract.state;
+    locks = contract.locks;
+    calibrated = isCalibrated(contract);
   } catch (e) {
     return { decision: "block", reason: `rubrix.json invalid: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -194,6 +209,13 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const tool = typeof input.tool_name === "string" ? input.tool_name : "";
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
   const isCodeEdit = CODE_EDITING_TOOLS.has(tool);
+  const editingContractItself = isCodeEdit && targetsContract(input, path);
+  if (!editingContractItself) {
+    const violation = firstClarityViolation(contract);
+    if (violation) {
+      return { decision: "block", reason: reasonForClarityBreach(violation), additionalContext: ctx };
+    }
+  }
   if (!isCodeEdit && promptInvokesRubric(prompt)) {
     if (!calibrated && !isBriefSkipEnv()) {
       return { decision: "block", reason: reasonForRubricBlocked(), additionalContext: ctx };
@@ -207,7 +229,7 @@ export function handlePreToolUse(input: HookInput): HookDecision {
     return { decision: "allow" };
   }
   if (isCodeEdit) {
-    if (targetsContract(input, path)) {
+    if (editingContractItself) {
       return { decision: "allow", reason: "editing rubrix.json contract itself is exempt from code-edit gate" };
     }
     if (!locks.rubric) {

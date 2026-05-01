@@ -17,6 +17,33 @@ import type { Locks, State } from "./state.ts";
 export type Axis = "security" | "data" | "correctness" | "ux" | "perf";
 export type AxisDepth = "light" | "standard" | "deep";
 
+export type ArtifactKey = "rubric" | "matrix" | "plan";
+
+export type ClarityDeductionCode =
+  | "vague_description"
+  | "missing_evidence"
+  | "unmeasurable_floor"
+  | "dangling_reference"
+  | "uncovered_axis";
+
+export interface ClarityDeduction {
+  code: ClarityDeductionCode;
+  message: string;
+  weight: number;
+}
+
+export interface Clarity {
+  score: number;
+  threshold: number;
+  deductions: ClarityDeduction[];
+  scored_at: string;
+  scorer_version: string;
+  artifact_hash: string;
+  forced: boolean;
+  forced_at?: string;
+  force_reason?: string;
+}
+
 export interface IntentBrief {
   calibrated: boolean;
   project_type?: "greenfield" | "brownfield_refactor" | "brownfield_feature" | "infra" | "doc";
@@ -32,9 +59,10 @@ export interface RubrixContract {
   rubric?: {
     threshold: number;
     criteria: Array<{ id: string; description: string; weight: number; floor?: number; axis?: Axis; verify?: string }>;
+    clarity?: Clarity;
   };
-  matrix?: { rows: Array<{ id: string; criterion: string; evidence_required: string; verify?: string }> };
-  plan?: { steps: Array<{ id: string; action: string; produces?: string; covers?: string[] }> };
+  matrix?: { rows: Array<{ id: string; criterion: string; evidence_required: string; verify?: string }>; clarity?: Clarity };
+  plan?: { steps: Array<{ id: string; action: string; produces?: string; covers?: string[] }>; clarity?: Clarity };
   state: State;
   locks: Locks;
   scores?: Array<{ criterion: string; score: number; evaluator?: string; confidence?: number; notes?: string }>;
