@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { ContractError, loadContract, type RubrixContract } from "../core/contract.ts";
+import { ContractError, loadContract, type ArtifactKey, type RubrixContract } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
 import { firstClarityViolation } from "../core/clarity-gate.ts";
+import { isV12Plus } from "../core/version.ts";
 
 export type HookEvent =
   | "SessionStart"
@@ -245,18 +246,76 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   return { decision: "allow" };
 }
 
+const DEDUCTION_PATTERN = /\[(vague_description|missing_evidence|unmeasurable_floor|dangling_reference|uncovered_axis)\][^\n]*/g;
+
 export function handlePostToolUse(input: HookInput): HookDecision {
   const path = defaultContractPath(input);
   if (!existsSync(path)) return {};
+  let contract: RubrixContract;
   try {
-    loadContract(path);
-    return {};
+    contract = loadContract(path);
   } catch (e) {
     if (e instanceof ContractError) {
       return { systemMessage: `[rubrix] contract drifted from schema after tool run: ${e.message}` };
     }
     return {};
   }
+  const blocks: string[] = [];
+  if (isV12Plus(contract)) {
+    const lockFailLines = extractLockFailDeductions(input);
+    if (lockFailLines.length > 0) {
+      blocks.push(
+        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`rubrix lock <key> <path> --force "<reason>"\`:\n${lockFailLines
+          .map((l) => `  - ${l}`)
+          .join("\n")}\n</rubrix-suggestion>`,
+      );
+    }
+    const forced = listForcedArtifacts(contract);
+    if (forced.length > 0) {
+      blocks.push(
+        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`rubrix report\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
+      );
+    }
+  }
+  if (blocks.length === 0) return {};
+  return { additionalContext: blocks.join("\n") };
+}
+
+function extractLockFailDeductions(input: HookInput): string[] {
+  const tool = typeof input.tool_name === "string" ? input.tool_name : "";
+  if (tool !== "Bash") return [];
+  const ti = input.tool_input as Record<string, unknown> | undefined;
+  const cmd = typeof ti?.command === "string" ? ti.command : "";
+  if (!cmd.includes("rubrix") || !/\block\b/.test(cmd)) return [];
+  const tr = (input as Record<string, unknown>).tool_response;
+  const stderr = collectStderr(tr);
+  if (!stderr) return [];
+  if (!stderr.includes("below threshold")) return [];
+  const out: string[] = [];
+  let match: RegExpExecArray | null;
+  DEDUCTION_PATTERN.lastIndex = 0;
+  while ((match = DEDUCTION_PATTERN.exec(stderr)) !== null) {
+    out.push(match[0].trim());
+  }
+  return out;
+}
+
+function collectStderr(tr: unknown): string | null {
+  if (typeof tr === "string") return tr;
+  if (tr === null || typeof tr !== "object") return null;
+  const obj = tr as Record<string, unknown>;
+  for (const field of ["stderr", "error", "output", "content"]) {
+    const v = obj[field];
+    if (typeof v === "string") return v;
+  }
+  return null;
+}
+
+function listForcedArtifacts(c: RubrixContract): ArtifactKey[] {
+  const out: ArtifactKey[] = [];
+  const keys: ArtifactKey[] = ["rubric", "matrix", "plan"];
+  for (const k of keys) if (c[k]?.clarity?.forced === true) out.push(k);
+  return out;
 }
 
 export function handlePostToolBatch(_input: HookInput): HookDecision {

@@ -64,8 +64,9 @@ program
     if (!Number.isFinite(n)) throw new Error(`--threshold must be a number, got '${raw}'`);
     return n;
   })
-  .action((key: string, path: string, opts: { threshold?: number }) => {
-    process.exit(lockCommand({ key, path, threshold: opts.threshold }));
+  .option("--force <reason>", "v1.2+: bypass clarity threshold; persists forced=true with forced_at + force_reason for audit (rubrix report surfaces forced locks)")
+  .action((key: string, path: string, opts: { threshold?: number; force?: string }) => {
+    process.exit(lockCommand({ key, path, threshold: opts.threshold, force: opts.force }));
   });
 
 program
