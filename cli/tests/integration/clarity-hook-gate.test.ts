@@ -645,6 +645,39 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       }
     });
 
+    it("(codex follow-up #19 P2) clarity-breach hint chooses prefix per CLAUDE_PLUGIN_ROOT presence", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      delete process.env.CLAUDE_PLUGIN_ROOT;
+      try {
+        const dev = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Edit",
+          tool_input: { file_path: "/tmp/source.ts" },
+        });
+        expect(dev.reason).toContain("node cli/bin/rubrix.js");
+        expect(dev.reason).not.toContain("$CLAUDE_PLUGIN_ROOT");
+      } finally {
+        if (prev !== undefined) process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+      const fakeRoot = "/Users/me/.claude/plugins/cache/rubrix/rubrix/1.2.0";
+      process.env.CLAUDE_PLUGIN_ROOT = fakeRoot;
+      try {
+        const installed = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Edit",
+          tool_input: { file_path: "/tmp/source.ts" },
+        });
+        expect(installed.reason).toContain("$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js");
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+        else process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+    });
+
     it("(codex follow-up #17 P2) PreToolUse blocks bare `rubrix lock ...` (PATH-trusting form is unsafe — workspace-local rubrix could shadow bundled CLI)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);

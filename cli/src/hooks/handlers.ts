@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { ContractError, loadContract, type ArtifactKey, type RubrixContract } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
-import { firstClarityViolation } from "../core/clarity-gate.ts";
+import { firstClarityViolation, recoveryCliPrefixForEnv } from "../core/clarity-gate.ts";
 import { isV12Plus } from "../core/version.ts";
 
 export type HookEvent =
@@ -246,7 +246,8 @@ function reasonForRubricBlocked(): string {
 }
 
 function reasonForClarityBreach(violation: string): string {
-  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock <key> <path>\`) or audit a forced lock (\`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock <key> <path> --force <reason>\`) before continuing.`;
+  const cli = recoveryCliPrefixForEnv();
+  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`${cli} lock <key> <path>\`) or audit a forced lock (\`${cli} lock <key> <path> --force <reason>\`) before continuing.`;
 }
 
 function suggestionForBrief(): string {
@@ -392,7 +393,7 @@ export function handlePostToolUse(input: HookInput): HookDecision {
     const lockFailLines = extractLockFailDeductions(input);
     if (lockFailLines.length > 0) {
       blocks.push(
-        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock <key> <path> --force "<reason>"\`:\n${lockFailLines
+        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`${recoveryCliPrefixForEnv()} lock <key> <path> --force "<reason>"\`:\n${lockFailLines
           .map((l) => `  - ${l}`)
           .join("\n")}\n</rubrix-suggestion>`,
       );
@@ -400,7 +401,7 @@ export function handlePostToolUse(input: HookInput): HookDecision {
     const forced = listForcedArtifacts(contract);
     if (forced.length > 0) {
       blocks.push(
-        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" report <path>\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
+        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`${recoveryCliPrefixForEnv()} report <path>\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
       );
     }
   }

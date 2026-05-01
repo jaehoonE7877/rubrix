@@ -4,7 +4,7 @@ import { lockTarget, type LockKey } from "../core/state.ts";
 import { isV12Plus } from "../core/version.ts";
 import { scoreClarity } from "../core/clarity.ts";
 import { resolveClarityThreshold } from "../core/brief.ts";
-import { checkClarityInvariants } from "../core/clarity-gate.ts";
+import { checkClarityInvariants, recoveryCliPrefixForEnv } from "../core/clarity-gate.ts";
 
 export interface LockOptions {
   path: string;
@@ -31,7 +31,7 @@ export function lockCommand(opts: LockOptions): number {
     const isReLock = c.locks[opts.key] === true;
     if (isReLock && c.state === "Failed") {
       process.stderr.write(
-        `cannot lock ${opts.key}: state is Failed; use the documented recovery loop \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" state set ${opts.path} PlanDrafted\` first, then re-lock.\n`,
+        `cannot lock ${opts.key}: state is Failed; use the documented recovery loop \`${recoveryCliPrefixForEnv(opts.env)} state set ${opts.path} PlanDrafted\` first, then re-lock.\n`,
       );
       return 3;
     }
@@ -106,7 +106,7 @@ export function lockCommand(opts: LockOptions): number {
             result.clarity.deductions
               .map((d) => `  - [${d.code}] ${d.message} (weight ${d.weight})`)
               .join("\n") +
-            `\n  hint: refine the ${opts.key} and re-lock, or run \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock ${opts.key} ${opts.path} --force "<reason>"\` to audit a forced lock.\n`,
+            `\n  hint: refine the ${opts.key} and re-lock, or run \`${recoveryCliPrefixForEnv(opts.env)} lock ${opts.key} ${opts.path} --force "<reason>"\` to audit a forced lock.\n`,
         );
         return 3;
       }
@@ -117,7 +117,7 @@ export function lockCommand(opts: LockOptions): number {
         clarity.force_reason = force;
         process.stderr.write(
           `!! forced lock: ${opts.key} score=${clarity.score} threshold=${clarity.threshold} reason="${force}"\n` +
-            `   audit trail persisted at c.${opts.key}.clarity (forced=true, forced_at=${clarity.forced_at}). Use \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" report ${opts.path}\` to review forced locks.\n`,
+            `   audit trail persisted at c.${opts.key}.clarity (forced=true, forced_at=${clarity.forced_at}). Use \`${recoveryCliPrefixForEnv(opts.env)} report ${opts.path}\` to review forced locks.\n`,
         );
       }
       c[opts.key]!.clarity = clarity;

@@ -8,8 +8,13 @@ export interface ClarityInvariantResult {
   errors: string[];
 }
 
-export function checkClarityInvariants(c: RubrixContract): ClarityInvariantResult {
+export function recoveryCliPrefixForEnv(env: NodeJS.ProcessEnv = process.env): string {
+  return env.CLAUDE_PLUGIN_ROOT ? `node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js"` : `node cli/bin/rubrix.js`;
+}
+
+export function checkClarityInvariants(c: RubrixContract, env: NodeJS.ProcessEnv = process.env): ClarityInvariantResult {
   if (!isV12Plus(c)) return { ok: true, errors: [] };
+  const cli = recoveryCliPrefixForEnv(env);
   const errors: string[] = [];
   for (const key of ARTIFACT_KEYS) {
     if (!c.locks[key]) continue;
@@ -17,7 +22,7 @@ export function checkClarityInvariants(c: RubrixContract): ClarityInvariantResul
     const clarity = body?.clarity;
     if (!clarity) {
       errors.push(
-        `  /${key}/clarity v1.2 contract requires ${key}.clarity at locks.${key}=true (run \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock ${key} <path>\` on a v1.2 contract — or \`--force <reason>\` to audit a forced lock)`,
+        `  /${key}/clarity v1.2 contract requires ${key}.clarity at locks.${key}=true (run \`${cli} lock ${key} <path>\` on a v1.2 contract — or \`--force <reason>\` to audit a forced lock)`,
       );
       continue;
     }
