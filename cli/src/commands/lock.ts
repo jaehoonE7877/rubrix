@@ -76,7 +76,7 @@ export function lockCommand(opts: LockOptions): number {
         override: opts.threshold,
         env: opts.env,
       });
-      const result = scoreClarity({ contract: c, key: opts.key, threshold });
+      const result = scoreClarity({ contract: c, key: opts.key, threshold, env: opts.env });
       if (!result.ok && force === undefined) {
         process.stderr.write(
           `cannot lock ${opts.key}: clarity ${result.clarity.score} below threshold ${result.clarity.threshold}\n` +

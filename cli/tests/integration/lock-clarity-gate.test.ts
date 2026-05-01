@@ -100,4 +100,26 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
     const after = JSON.parse(readFileSync(path, "utf8"));
     expect(after.rubric.clarity.threshold).toBe(0);
   });
+
+  it("(codex review #29 P2) RUBRIX_SKIP_BRIEF=1 in env propagates to scoreClarity so threshold and deductions agree", () => {
+    const c = baseV12Drafted();
+    c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+    };
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "rubric", path, env: { RUBRIX_SKIP_BRIEF: "1" } });
+    expect(code).toBe(0);
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    const codes = (after.rubric.clarity.deductions ?? []).map((d: { code: string }) => d.code);
+    expect(codes).not.toContain("uncovered_axis");
+  });
 });

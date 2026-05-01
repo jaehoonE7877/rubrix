@@ -84,6 +84,7 @@ export interface ScoreClarityInput {
   key: ArtifactKey;
   threshold: number;
   now?: Date;
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface ScoreClarityResult {
@@ -93,10 +94,11 @@ export interface ScoreClarityResult {
 
 export function scoreClarity(input: ScoreClarityInput): ScoreClarityResult {
   const { contract, key, threshold } = input;
+  const env = input.env ?? {};
   const deductions: ClarityDeduction[] = [];
   switch (key) {
     case "rubric":
-      collectRubricDeductions(contract, deductions);
+      collectRubricDeductions(contract, deductions, env);
       break;
     case "matrix":
       collectMatrixDeductions(contract, deductions);
@@ -123,7 +125,7 @@ export function scoreClarity(input: ScoreClarityInput): ScoreClarityResult {
   return { clarity, ok: score >= clarity.threshold };
 }
 
-function collectRubricDeductions(c: RubrixContract, into: ClarityDeduction[]): void {
+function collectRubricDeductions(c: RubrixContract, into: ClarityDeduction[], env: NodeJS.ProcessEnv): void {
   const r = c.rubric;
   if (!r) return;
   for (const crit of r.criteria) {
@@ -150,7 +152,7 @@ function collectRubricDeductions(c: RubrixContract, into: ClarityDeduction[]): v
       });
     }
   }
-  const depths = resolveAxisDepth(c, {});
+  const depths = resolveAxisDepth(c, env);
   for (const axis of AXES) {
     if (depths[axis] !== "deep") continue;
     const matched = r.criteria.filter((cr) => cr.axis === axis);

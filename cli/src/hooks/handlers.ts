@@ -211,11 +211,13 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
   const isCodeEdit = CODE_EDITING_TOOLS.has(tool);
   const editingContractItself = isCodeEdit && targetsContract(input, path);
-  if (!editingContractItself) {
-    const violation = firstClarityViolation(contract);
-    if (violation) {
-      return { decision: "block", reason: reasonForClarityBreach(violation), additionalContext: ctx };
-    }
+  const violation = firstClarityViolation(contract);
+  const violatesOnGatedSurface = violation !== null && (
+    (isCodeEdit && !editingContractItself) ||
+    (!isCodeEdit && (promptInvokesRubric(prompt) || promptInvokesScore(prompt)))
+  );
+  if (violatesOnGatedSurface && violation !== null) {
+    return { decision: "block", reason: reasonForClarityBreach(violation), additionalContext: ctx };
   }
   if (!isCodeEdit && promptInvokesRubric(prompt)) {
     if (!calibrated && !isBriefSkipEnv()) {

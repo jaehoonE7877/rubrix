@@ -73,7 +73,7 @@ export function scoreClarityCommand(opts: ScoreClarityOptions): number {
     return 0;
   }
 
-  const result = scoreClarity({ contract, key, threshold });
+  const result = scoreClarity({ contract, key, threshold, env: opts.env });
   const out: ScoreClarityOutput = {
     artifact: key,
     artifact_hash: result.clarity.artifact_hash,

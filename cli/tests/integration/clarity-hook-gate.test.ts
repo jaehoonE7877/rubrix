@@ -132,4 +132,43 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
     const code = gateCommand({ path, env: {} });
     expect(code).toBe(0);
   });
+
+  describe("(codex review #28/#31 P1) clarity-breach block scope is restricted to gated surfaces", () => {
+    it("PreToolUse allows Bash (e.g. `rubrix lock --force`) on a v1.2 contract with a clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js lock plan ${path} --force "audit override"` },
+      });
+      expect(decision.decision).toBe("allow");
+    });
+
+    it("PreToolUse allows Read (diagnostics) on a v1.2 contract with a clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Read",
+        tool_input: { file_path: "/tmp/some-other-file.ts" },
+      });
+      expect(decision.decision).toBe("allow");
+    });
+
+    it("PreToolUse still blocks /rubrix:rubric on a v1.2 contract with a clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "SlashCommand",
+        prompt: "/rubrix:rubric",
+      });
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("v1.2 clarity invariant");
+    });
+  });
 });
