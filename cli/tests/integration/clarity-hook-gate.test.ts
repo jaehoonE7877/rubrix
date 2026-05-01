@@ -519,6 +519,46 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
+    it("(codex follow-up #12 P2) PreToolUse allows `node $CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js lock ...` (plugin-installed absolute path)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const fakeRoot = "/Users/me/.claude/plugins/cache/rubrix/rubrix/1.2.0";
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      process.env.CLAUDE_PLUGIN_ROOT = fakeRoot;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `node ${fakeRoot}/cli/bin/rubrix.js lock plan ${path} --force "audit"` },
+        });
+        expect(decision.decision).toBe("allow");
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+        else process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+    });
+
+    it("(codex follow-up #12 P2) PreToolUse blocks `node /tmp/imposter/cli/bin/rubrix.js lock ...` even with CLAUDE_PLUGIN_ROOT set elsewhere", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const fakeRoot = "/Users/me/.claude/plugins/cache/rubrix/rubrix/1.2.0";
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      process.env.CLAUDE_PLUGIN_ROOT = fakeRoot;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `node /tmp/imposter/cli/bin/rubrix.js lock plan ${path}` },
+        });
+        expect(decision.decision).toBe("block");
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+        else process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+    });
+
     it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);

@@ -111,7 +111,24 @@ export function lockCommand(opts: LockOptions): number {
       c[opts.key]!.clarity = clarity;
     }
     c.locks[opts.key] = true;
-    if (!isReLock) c.state = to;
+    if (isReLock) {
+      const downstream = downstreamOf(opts.key);
+      const invalidated: ArtifactKey[] = [];
+      for (const dk of downstream) {
+        if (c.locks[dk]) invalidated.push(dk);
+        c.locks[dk] = false;
+        if (c[dk]?.clarity) delete c[dk]!.clarity;
+      }
+      c.state = to;
+      if (c.scores) delete c.scores;
+      if (invalidated.length) {
+        process.stderr.write(
+          `!! re-lock cascade: ${opts.key} re-locked invalidated downstream locks (${invalidated.join(", ")}); re-lock those before /rubrix:score.\n`,
+        );
+      }
+    } else {
+      c.state = to;
+    }
     saveContract(opts.path, c);
     process.stdout.write(isReLock ? `${opts.key} re-locked (state=${c.state})\n` : `${opts.key} locked -> ${to}\n`);
     return 0;
@@ -125,6 +142,12 @@ function upstreamOf(key: LockKey): ArtifactKey[] {
   if (key === "rubric") return [];
   if (key === "matrix") return ["rubric"];
   return ["rubric", "matrix"];
+}
+
+function downstreamOf(key: LockKey): ArtifactKey[] {
+  if (key === "rubric") return ["matrix", "plan"];
+  if (key === "matrix") return ["plan"];
+  return [];
 }
 
 function pickLocks(locks: { rubric: boolean; matrix: boolean; plan: boolean }, keys: ArtifactKey[]): { rubric: boolean; matrix: boolean; plan: boolean } {
