@@ -1,10 +1,15 @@
 import { ContractError, loadContract, saveContract } from "../core/contract.ts";
 import { checkMatrixIntegrity, checkPlanIntegrity, checkRubricIntegrity } from "../core/integrity.ts";
 import { lockTarget, type LockKey } from "../core/state.ts";
+import { isV12Plus } from "../core/version.ts";
+import { scoreClarity } from "../core/clarity.ts";
+import { resolveClarityThreshold } from "../core/brief.ts";
 
 export interface LockOptions {
   path: string;
   key: string;
+  threshold?: number;
+  env?: NodeJS.ProcessEnv;
 }
 
 const LOCK_KEYS: ReadonlyArray<LockKey> = ["rubric", "matrix", "plan"];
@@ -50,6 +55,24 @@ export function lockCommand(opts: LockOptions): number {
         process.stderr.write(`cannot lock plan: semantic integrity failed:\n${issues.map((i) => "  " + i.message).join("\n")}\n`);
         return 3;
       }
+    }
+    if (isV12Plus(c)) {
+      const threshold = resolveClarityThreshold(c, opts.key, {
+        override: opts.threshold,
+        env: opts.env,
+      });
+      const result = scoreClarity({ contract: c, key: opts.key, threshold });
+      if (!result.ok) {
+        process.stderr.write(
+          `cannot lock ${opts.key}: clarity ${result.clarity.score} below threshold ${result.clarity.threshold}\n` +
+            result.clarity.deductions
+              .map((d) => `  - [${d.code}] ${d.message} (weight ${d.weight})`)
+              .join("\n") +
+            `\n  hint: refine the ${opts.key} and re-lock, or run \`rubrix lock ${opts.key} ${opts.path} --force <reason>\` (PR #3) to audit a forced lock.\n`,
+        );
+        return 3;
+      }
+      c[opts.key]!.clarity = result.clarity;
     }
     c.locks[opts.key] = true;
     c.state = to;

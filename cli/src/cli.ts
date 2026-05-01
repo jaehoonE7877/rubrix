@@ -59,8 +59,13 @@ stateCmd
 program
   .command("lock <key> <path>")
   .description("Lock rubric|matrix|plan and advance to the *Locked state")
-  .action((key: string, path: string) => {
-    process.exit(lockCommand({ key, path }));
+  .option("--threshold <n>", "v1.2+: override the resolved clarity threshold (0-1) for this lock", (raw) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) throw new Error(`--threshold must be a number, got '${raw}'`);
+    return n;
+  })
+  .action((key: string, path: string, opts: { threshold?: number }) => {
+    process.exit(lockCommand({ key, path, threshold: opts.threshold }));
   });
 
 program
