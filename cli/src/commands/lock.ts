@@ -132,7 +132,6 @@ export function lockCommand(opts: LockOptions): number {
         if (c[dk]?.clarity) delete c[dk]!.clarity;
       }
       c.state = to;
-      if (c.scores) delete c.scores;
       if (invalidated.length) {
         process.stderr.write(
           `!! re-lock cascade: ${opts.key} re-locked invalidated downstream locks (${invalidated.join(", ")}); re-lock those before /rubrix:score.\n`,
@@ -141,6 +140,7 @@ export function lockCommand(opts: LockOptions): number {
     } else {
       c.state = to;
     }
+    if (c.scores) delete c.scores;
     saveContract(opts.path, c);
     process.stdout.write(isReLock ? `${opts.key} re-locked (state=${c.state})\n` : `${opts.key} locked -> ${to}\n`);
     return 0;

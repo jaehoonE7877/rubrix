@@ -483,16 +483,22 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
-    it("(codex follow-up #9 P2) PreToolUse allows `RUBRIX_SKIP_BRIEF=1 rubrix lock rubric ...` (safe env prefix for recovery)", () => {
+    it("(codex follow-up #9 P2) PreToolUse allows `RUBRIX_SKIP_BRIEF=1 node cli/bin/rubrix.js lock rubric ...` (safe env prefix for recovery)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
-      const decision = handlePreToolUse({
-        cwd: dirname(path),
-        contract_path: path,
-        tool_name: "Bash",
-        tool_input: { command: `RUBRIX_SKIP_BRIEF=1 rubrix lock rubric ${path}` },
-      });
-      expect(decision.decision).toBe("allow");
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      delete process.env.CLAUDE_PLUGIN_ROOT;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `RUBRIX_SKIP_BRIEF=1 node cli/bin/rubrix.js lock rubric ${path}` },
+        });
+        expect(decision.decision).toBe("allow");
+      } finally {
+        if (prev !== undefined) process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
     });
 
     it("(codex follow-up #9 P2) PreToolUse blocks arbitrary env prefix (e.g. `FOO=bar rubrix lock ...`)", () => {
@@ -579,16 +585,22 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       }
     });
 
-    it("(codex follow-up #14 P2) PreToolUse allows `rubrix state set <path> PlanDrafted` on clarity breach (Failed-loop rollback executable)", () => {
+    it("(codex follow-up #14 P2) PreToolUse allows `node cli/bin/rubrix.js state set <path> PlanDrafted` on clarity breach (Failed-loop rollback executable)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
-      const decision = handlePreToolUse({
-        cwd: dirname(path),
-        contract_path: path,
-        tool_name: "Bash",
-        tool_input: { command: `rubrix state set ${path} PlanDrafted` },
-      });
-      expect(decision.decision).toBe("allow");
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      delete process.env.CLAUDE_PLUGIN_ROOT;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `node cli/bin/rubrix.js state set ${path} PlanDrafted` },
+        });
+        expect(decision.decision).toBe("allow");
+      } finally {
+        if (prev !== undefined) process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
     });
 
     it("(codex follow-up #14 P2) PreToolUse blocks `rubrix state set <path> Passed` (only PlanDrafted target is exempted)", () => {
@@ -615,16 +627,34 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
-    it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
+    it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form, no CLAUDE_PLUGIN_ROOT)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      delete process.env.CLAUDE_PLUGIN_ROOT;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `node cli/bin/rubrix.js lock plan ${path} --force "vendor freeze"` },
+        });
+        expect(decision.decision).toBe("allow");
+      } finally {
+        if (prev !== undefined) process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+    });
+
+    it("(codex follow-up #17 P2) PreToolUse blocks bare `rubrix lock ...` (PATH-trusting form is unsafe — workspace-local rubrix could shadow bundled CLI)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
       const decision = handlePreToolUse({
         cwd: dirname(path),
         contract_path: path,
         tool_name: "Bash",
-        tool_input: { command: `node cli/bin/rubrix.js lock plan ${path} --force "vendor freeze"` },
+        tool_input: { command: `rubrix lock plan ${path} --force "audit"` },
       });
-      expect(decision.decision).toBe("allow");
+      expect(decision.decision).toBe("block");
     });
 
     it("(codex follow-up P2) PreToolUse allows Glob/Grep diagnostics on clarity breach (read-only tools)", () => {

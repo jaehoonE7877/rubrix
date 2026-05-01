@@ -157,16 +157,10 @@ function isRubrixRecoveryBash(input: HookInput): boolean {
   const argv = tokens[0] === SAFE_ENV_PREFIX ? tokens.slice(1) : tokens;
   if (argv.length < 2) return false;
   if (/^[A-Z_][A-Z0-9_]*=/.test(argv[0] as string)) return false;
-  let subCmdIdx: number;
-  if (argv[0] === "rubrix") {
-    subCmdIdx = 1;
-  } else if (argv[0] === "node" && argv.length >= 3) {
-    const scriptPath = argv[1] as string;
-    if (!isBundledRubrixScriptPath(scriptPath)) return false;
-    subCmdIdx = 2;
-  } else {
-    return false;
-  }
+  if (argv[0] !== "node" || argv.length < 3) return false;
+  const scriptPath = argv[1] as string;
+  if (!isBundledRubrixScriptPath(scriptPath)) return false;
+  const subCmdIdx = 2;
   const sub = argv[subCmdIdx];
   if (typeof sub !== "string") return false;
   if (sub === "state") {
