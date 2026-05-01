@@ -131,7 +131,14 @@ function tokenizeShellSafe(cmd: string): string[] | null {
       hasContent = true;
       continue;
     }
-    if (ch === "`" || ch === "{" || ch === "}" || ch === "~" || ch === "*" || ch === "?" || ch === "[" || ch === "]") return null;
+    if (ch === "`" || ch === "{" || ch === "}" || ch === "~" || ch === "*" || ch === "?" || ch === "[" || ch === "]" || ch === "(" || ch === ")" || ch === "=") {
+      if (ch === "=" && i > 0 && /[A-Za-z0-9_-]/.test(cmd[i - 1] as string)) {
+        cur += ch;
+        hasContent = true;
+        continue;
+      }
+      return null;
+    }
     if (ch === ";" || ch === "&" || ch === "|" || ch === "<" || ch === ">" || ch === "\n" || ch === "\r") return null;
     if (ch === " " || ch === "\t") {
       if (hasContent) { tokens.push(cur); cur = ""; hasContent = false; }
@@ -164,21 +171,32 @@ function isRubrixRecoveryBash(input: HookInput, contractPath: string): boolean {
   const sub = argv[subCmdIdx];
   if (typeof sub !== "string") return false;
   const cwd = typeof input.cwd === "string" ? input.cwd : process.cwd();
+  const expectedPositionals: Record<string, number> = {
+    lock: 2,
+    "score-clarity": 2,
+    report: 1,
+    validate: 1,
+  };
   if (sub === "state") {
     if (argv[subCmdIdx + 1] !== "set") return false;
+    const path0 = argv[subCmdIdx + 2];
+    if (typeof path0 !== "string" || path0.startsWith("--")) return false;
     if (argv[subCmdIdx + 3] !== "PlanDrafted") return false;
-    const targetPath = argv[subCmdIdx + 2];
-    return typeof targetPath === "string" && resolve(cwd, targetPath) === resolve(contractPath);
+    if (resolve(cwd, path0) !== resolve(contractPath)) return false;
+    for (const arg of argv.slice(subCmdIdx + 4)) {
+      if (arg === "--out" || arg.startsWith("--out=")) return false;
+    }
+    return true;
   }
-  if (!RUBRIX_RECOVERY_SUBCMDS.has(sub)) return false;
-  if (sub === "lock") {
-    const targetPath = argv[subCmdIdx + 2];
-    if (typeof targetPath !== "string" || resolve(cwd, targetPath) !== resolve(contractPath)) return false;
-  } else {
-    const targetPath = argv[subCmdIdx + 1];
-    if (typeof targetPath !== "string" || resolve(cwd, targetPath) !== resolve(contractPath)) return false;
+  if (!(sub in expectedPositionals)) return false;
+  const expected = expectedPositionals[sub] as number;
+  for (let i = 1; i <= expected; i++) {
+    const a = argv[subCmdIdx + i];
+    if (typeof a !== "string" || a.startsWith("--") || a.startsWith("-")) return false;
   }
-  for (const arg of argv.slice(subCmdIdx + 1)) {
+  const targetPath = argv[subCmdIdx + expected];
+  if (typeof targetPath !== "string" || resolve(cwd, targetPath) !== resolve(contractPath)) return false;
+  for (const arg of argv.slice(subCmdIdx + expected + 1)) {
     if (arg === "--out" || arg.startsWith("--out=")) return false;
   }
   return true;

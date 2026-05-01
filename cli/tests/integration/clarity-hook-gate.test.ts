@@ -678,6 +678,43 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       }
     });
 
+    it("(codex follow-up #21 P1) PreToolUse blocks zsh =(...) process substitution in recovery Bash", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js report ${path} =(touch src/foo.ts)` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #21 P2) PreToolUse blocks `lock --force <breachedPath> plan <otherPath>` (options-before-positional grammar attack)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const breachedPath = tempContractFile(c);
+      const otherPath = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(breachedPath),
+        contract_path: breachedPath,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js lock --force "${breachedPath}" plan ${otherPath}` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #21 P2) PreToolUse correctly handles `score-clarity rubric <path>` (key + path positional grammar)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js score-clarity rubric ${path}` },
+      });
+      expect(decision.decision).toBe("allow");
+    });
+
     it("(codex follow-up #20 P2) PreToolUse blocks recovery Bash that targets a different rubrix.json than the breached one", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const breachedPath = tempContractFile(c);
