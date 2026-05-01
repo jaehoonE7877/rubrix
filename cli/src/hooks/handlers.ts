@@ -50,18 +50,80 @@ const CODE_EDITING_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"
 const READ_ONLY_TOOLS = new Set(["Read", "Glob", "Grep"]);
 const SCORE_TRIGGERS = new Set(["/score", "score", "/rubrix:score"]);
 const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
-const RUBRIX_RECOVERY_CMD = /^(?:rubrix|node\s+(?:[^\s;&|`<>]*\/)?rubrix\.js)\s+(?:lock|report|validate|score-clarity|state|gate|brief)\b/;
-const SHELL_COMPOSITION = /[;&|`<>\n\r]|\$\(/;
-const RUBRIX_FILE_WRITING_FLAG = /(^|[\s'"])--out(?:[=\s'"]|$)/;
+const RUBRIX_RECOVERY_SUBCMDS = new Set([
+  "lock", "report", "validate", "score-clarity", "state", "gate", "brief",
+]);
+const BUNDLED_RUBRIX_JS = /^\.{0,2}\/?cli\/bin\/rubrix\.js$/;
+
+function tokenizeShellSafe(cmd: string): string[] | null {
+  const tokens: string[] = [];
+  let cur = "";
+  let inSingle = false;
+  let inDouble = false;
+  let hasContent = false;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i] as string;
+    if (inSingle) {
+      if (ch === "'") { inSingle = false; continue; }
+      cur += ch;
+      hasContent = true;
+      continue;
+    }
+    if (inDouble) {
+      if (ch === '"') { inDouble = false; continue; }
+      if (ch === "\\" && i + 1 < cmd.length) { cur += cmd[i + 1] as string; i++; hasContent = true; continue; }
+      if (ch === "$" || ch === "`") return null;
+      cur += ch;
+      hasContent = true;
+      continue;
+    }
+    if (ch === "'") { inSingle = true; hasContent = true; continue; }
+    if (ch === '"') { inDouble = true; hasContent = true; continue; }
+    if (ch === "\\") {
+      if (i + 1 >= cmd.length) return null;
+      cur += cmd[i + 1] as string;
+      hasContent = true;
+      i++;
+      continue;
+    }
+    if (ch === "$" && i + 1 < cmd.length && cmd[i + 1] === "(") return null;
+    if (ch === ";" || ch === "&" || ch === "|" || ch === "<" || ch === ">" || ch === "`" || ch === "\n" || ch === "\r") return null;
+    if (ch === " " || ch === "\t") {
+      if (hasContent) { tokens.push(cur); cur = ""; hasContent = false; }
+      continue;
+    }
+    cur += ch;
+    hasContent = true;
+  }
+  if (inSingle || inDouble) return null;
+  if (hasContent) tokens.push(cur);
+  return tokens;
+}
 
 function isRubrixRecoveryBash(input: HookInput): boolean {
   if (input.tool_name !== "Bash") return false;
   const ti = input.tool_input as Record<string, unknown> | undefined;
-  const cmd = typeof ti?.command === "string" ? ti.command.trim() : "";
-  if (!cmd) return false;
-  if (SHELL_COMPOSITION.test(cmd)) return false;
-  if (RUBRIX_FILE_WRITING_FLAG.test(cmd)) return false;
-  return RUBRIX_RECOVERY_CMD.test(cmd);
+  const raw = typeof ti?.command === "string" ? ti.command.trim() : "";
+  if (!raw) return false;
+  const argv = tokenizeShellSafe(raw);
+  if (!argv || argv.length < 2) return false;
+  let subCmdIdx: number;
+  if (argv[0] === "rubrix") {
+    subCmdIdx = 1;
+  } else if (argv[0] === "node" && argv.length >= 3) {
+    const scriptPath = argv[1] as string;
+    if (scriptPath.includes("..")) return false;
+    if (!BUNDLED_RUBRIX_JS.test(scriptPath)) return false;
+    subCmdIdx = 2;
+  } else {
+    return false;
+  }
+  const sub = argv[subCmdIdx];
+  if (typeof sub !== "string" || !RUBRIX_RECOVERY_SUBCMDS.has(sub)) return false;
+  for (const arg of argv.slice(subCmdIdx + 1)) {
+    if (arg === "--out" || arg.startsWith("--out=")) return false;
+  }
+  return true;
 }
 
 function promptInvokesScore(prompt: string): boolean {
