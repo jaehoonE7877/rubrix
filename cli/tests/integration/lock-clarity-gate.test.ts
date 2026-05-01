@@ -101,6 +101,32 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
     expect(after.rubric.clarity.threshold).toBe(0);
   });
 
+  it("(codex follow-up #10 P1) lockCommand refuses to advance lifecycle when upstream artifact has clarity invariant breach", () => {
+    const c = baseV12Drafted();
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+    };
+    c.matrix = { rows: [{ id: "r1", criterion: "ok", evidence_required: "An adequately long evidence requirement description without vague language tokens.", verify: "manual review" }] };
+    c.state = "MatrixDrafted";
+    c.locks = { rubric: true, matrix: false, plan: false };
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "matrix", path, env: {} });
+    expect(code).toBe(3);
+    expect(cap.stderr).toContain("upstream clarity invariant breach");
+    expect(cap.stderr).toContain("/rubric/clarity");
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.state).toBe("MatrixDrafted");
+    expect(after.locks.matrix).toBe(false);
+  });
+
   it("(codex follow-up #4 P2) lockCommand falls back to process.env at the CLI boundary so RUBRIX_SKIP_BRIEF=1 works without explicit env arg", () => {
     const c = baseV12Drafted();
     c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };

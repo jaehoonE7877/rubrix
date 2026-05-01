@@ -1,9 +1,10 @@
-import { ContractError, loadContract, saveContract } from "../core/contract.ts";
+import { ContractError, loadContract, saveContract, type ArtifactKey } from "../core/contract.ts";
 import { checkMatrixIntegrity, checkPlanIntegrity, checkRubricIntegrity } from "../core/integrity.ts";
 import { lockTarget, type LockKey } from "../core/state.ts";
 import { isV12Plus } from "../core/version.ts";
 import { scoreClarity } from "../core/clarity.ts";
 import { resolveClarityThreshold } from "../core/brief.ts";
+import { checkClarityInvariants } from "../core/clarity-gate.ts";
 
 export interface LockOptions {
   path: string;
@@ -71,6 +72,14 @@ export function lockCommand(opts: LockOptions): number {
       }
     }
     if (isV12Plus(c)) {
+      const upstreamKeys: ArtifactKey[] = upstreamOf(opts.key);
+      const upstreamCheck = checkClarityInvariants({ ...c, locks: pickLocks(c.locks, upstreamKeys) });
+      if (!upstreamCheck.ok) {
+        process.stderr.write(
+          `cannot lock ${opts.key}: upstream clarity invariant breach blocks lifecycle advance:\n${upstreamCheck.errors.join("\n")}\n  hint: re-lock the upstream artifact (with --force <reason> if needed) before advancing.\n`,
+        );
+        return 3;
+      }
       const force = typeof opts.force === "string" ? opts.force.trim() : undefined;
       const env = opts.env ?? process.env;
       const threshold = resolveClarityThreshold(c, opts.key, {
@@ -109,4 +118,16 @@ export function lockCommand(opts: LockOptions): number {
     process.stderr.write((e instanceof Error ? e.message : String(e)) + "\n");
     return e instanceof ContractError ? 2 : 1;
   }
+}
+
+function upstreamOf(key: LockKey): ArtifactKey[] {
+  if (key === "rubric") return [];
+  if (key === "matrix") return ["rubric"];
+  return ["rubric", "matrix"];
+}
+
+function pickLocks(locks: { rubric: boolean; matrix: boolean; plan: boolean }, keys: ArtifactKey[]): { rubric: boolean; matrix: boolean; plan: boolean } {
+  const out = { rubric: false, matrix: false, plan: false };
+  for (const k of keys) out[k] = locks[k];
+  return out;
 }
