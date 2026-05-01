@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lockCommand } from "../../src/commands/lock.ts";
-import { baseDrafted, baseV12Drafted, tempContractFile } from "../helpers.ts";
+import { baseDrafted, baseV12Drafted, clarity, tempContractFile } from "../helpers.ts";
 
 interface Cap {
   stdout: string;
@@ -99,6 +99,35 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
     expect(code).toBe(0);
     const after = JSON.parse(readFileSync(path, "utf8"));
     expect(after.rubric.clarity.threshold).toBe(0);
+  });
+
+  it("(codex follow-up #11 P2) lockCommand allows in-place re-lock of an already-locked artifact (recovery path executable)", () => {
+    const c = baseV12Drafted();
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+      clarity: clarity(0.95, 0.75),
+    };
+    c.matrix = { rows: [{ id: "r1", criterion: "ok", evidence_required: "An adequately long evidence requirement description without vague language tokens.", verify: "manual review" }] };
+    c.plan = { steps: [{ id: "s1", action: "An adequately long action description without any vague language tokens here.", covers: ["r1"] }] };
+    c.state = "PlanDrafted";
+    c.locks = { rubric: true, matrix: true, plan: false };
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "matrix", path, force: "audit override", env: {} });
+    expect(code).toBe(0);
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.state).toBe("PlanDrafted");
+    expect(after.locks.matrix).toBe(true);
+    expect(after.matrix.clarity.forced).toBe(true);
+    expect(after.matrix.clarity.force_reason).toBe("audit override");
+    expect(cap.stdout).toContain("re-locked");
   });
 
   it("(codex follow-up #10 P1) lockCommand refuses to advance lifecycle when upstream artifact has clarity invariant breach", () => {

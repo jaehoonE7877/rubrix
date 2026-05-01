@@ -28,7 +28,8 @@ export function lockCommand(opts: LockOptions): number {
   try {
     const c = loadContract(opts.path);
     const { from, to } = lockTarget(opts.key);
-    if (c.state !== from) {
+    const isReLock = c.locks[opts.key] === true;
+    if (!isReLock && c.state !== from) {
       process.stderr.write(`cannot lock ${opts.key}: state is ${c.state}, expected ${from}\n`);
       return 3;
     }
@@ -110,9 +111,9 @@ export function lockCommand(opts: LockOptions): number {
       c[opts.key]!.clarity = clarity;
     }
     c.locks[opts.key] = true;
-    c.state = to;
+    if (!isReLock) c.state = to;
     saveContract(opts.path, c);
-    process.stdout.write(`${opts.key} locked -> ${to}\n`);
+    process.stdout.write(isReLock ? `${opts.key} re-locked (state=${c.state})\n` : `${opts.key} locked -> ${to}\n`);
     return 0;
   } catch (e) {
     process.stderr.write((e instanceof Error ? e.message : String(e)) + "\n");
