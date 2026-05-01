@@ -209,6 +209,68 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("allow");
     });
 
+    it("(codex follow-up #2 P1) PreToolUse blocks compound Bash like `rubrix report && sed -i ...` on clarity breach (no metachar bypass)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} && sed -i 's/x/y/' src/foo.ts` },
+      });
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("v1.2 clarity invariant");
+    });
+
+    it("(codex follow-up #2 P1) PreToolUse blocks `cat >src/foo.ts; rubrix validate ...` on clarity breach (semicolon chaining)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `cat >src/foo.ts <<EOF\nx\nEOF\nrubrix validate ${path}` },
+      });
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("v1.2 clarity invariant");
+    });
+
+    it("(codex follow-up #2 P1) PreToolUse blocks redirect `rubrix report > out.txt` on clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} > /tmp/out.txt` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #2 P1) PreToolUse blocks pipe `rubrix report | tee` on clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} | tee /tmp/out.txt` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #2 P1) PreToolUse blocks command-substitution `rubrix lock $(some)` on clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix lock plan ${path} --force "$(cat /tmp/reason.txt)"` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
     it("(codex follow-up P2) PreToolUse allows Glob/Grep diagnostics on clarity breach (read-only tools)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);

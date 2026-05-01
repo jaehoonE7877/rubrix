@@ -51,11 +51,14 @@ const READ_ONLY_TOOLS = new Set(["Read", "Glob", "Grep"]);
 const SCORE_TRIGGERS = new Set(["/score", "score", "/rubrix:score"]);
 const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
 const RUBRIX_RECOVERY_CMD = /\brubrix(?:\.js)?\s+(?:lock|report|validate|score-clarity|state|gate|brief)\b/;
+const SHELL_COMPOSITION = /[;&|`<>]|\$\(/;
 
 function isRubrixRecoveryBash(input: HookInput): boolean {
   if (input.tool_name !== "Bash") return false;
   const ti = input.tool_input as Record<string, unknown> | undefined;
-  const cmd = typeof ti?.command === "string" ? ti.command : "";
+  const cmd = typeof ti?.command === "string" ? ti.command.trim() : "";
+  if (!cmd) return false;
+  if (SHELL_COMPOSITION.test(cmd)) return false;
   return RUBRIX_RECOVERY_CMD.test(cmd);
 }
 
