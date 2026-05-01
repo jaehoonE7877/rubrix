@@ -483,6 +483,42 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
+    it("(codex follow-up #9 P2) PreToolUse allows `RUBRIX_SKIP_BRIEF=1 rubrix lock rubric ...` (safe env prefix for recovery)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `RUBRIX_SKIP_BRIEF=1 rubrix lock rubric ${path}` },
+      });
+      expect(decision.decision).toBe("allow");
+    });
+
+    it("(codex follow-up #9 P2) PreToolUse blocks arbitrary env prefix (e.g. `FOO=bar rubrix lock ...`)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `FOO=bar rubrix lock rubric ${path}` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #9 P2) PreToolUse blocks `RUBRIX_SKIP_BRIEF=0 rubrix lock ...` (only =1 is the documented safe value)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `RUBRIX_SKIP_BRIEF=0 rubrix lock rubric ${path}` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
     it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);

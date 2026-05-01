@@ -109,13 +109,18 @@ function tokenizeShellSafe(cmd: string): string[] | null {
   return tokens;
 }
 
+const SAFE_ENV_PREFIX = "RUBRIX_SKIP_BRIEF=1";
+
 function isRubrixRecoveryBash(input: HookInput): boolean {
   if (input.tool_name !== "Bash") return false;
   const ti = input.tool_input as Record<string, unknown> | undefined;
   const raw = typeof ti?.command === "string" ? ti.command.trim() : "";
   if (!raw) return false;
-  const argv = tokenizeShellSafe(raw);
-  if (!argv || argv.length < 2) return false;
+  const tokens = tokenizeShellSafe(raw);
+  if (!tokens || tokens.length < 2) return false;
+  const argv = tokens[0] === SAFE_ENV_PREFIX ? tokens.slice(1) : tokens;
+  if (argv.length < 2) return false;
+  if (/^[A-Z_][A-Z0-9_]*=/.test(argv[0] as string)) return false;
   let subCmdIdx: number;
   if (argv[0] === "rubrix") {
     subCmdIdx = 1;
