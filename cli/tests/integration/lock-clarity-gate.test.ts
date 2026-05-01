@@ -126,7 +126,7 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
       expect(code).toBe(3);
       expect(cap.stderr).toContain(`state is ${terminalState}`);
       if (terminalState === "Failed") {
-        expect(cap.stderr).toContain("rubrix state set");
+        expect(cap.stderr).toContain("state set");
         expect(cap.stderr).toContain("PlanDrafted");
       } else {
         expect(cap.stderr).toContain("Edit rubrix.json directly");

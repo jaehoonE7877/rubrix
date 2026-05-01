@@ -17,7 +17,7 @@ export function checkClarityInvariants(c: RubrixContract): ClarityInvariantResul
     const clarity = body?.clarity;
     if (!clarity) {
       errors.push(
-        `  /${key}/clarity v1.2 contract requires ${key}.clarity at locks.${key}=true (run \`rubrix lock ${key} <path>\` on a v1.2 contract — or \`--force <reason>\` to audit a forced lock)`,
+        `  /${key}/clarity v1.2 contract requires ${key}.clarity at locks.${key}=true (run \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock ${key} <path>\` on a v1.2 contract — or \`--force <reason>\` to audit a forced lock)`,
       );
       continue;
     }

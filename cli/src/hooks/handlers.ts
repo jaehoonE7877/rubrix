@@ -246,7 +246,7 @@ function reasonForRubricBlocked(): string {
 }
 
 function reasonForClarityBreach(violation: string): string {
-  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`rubrix lock <key> <path>\`) or audit a forced lock (\`rubrix lock <key> <path> --force <reason>\`) before continuing.`;
+  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock <key> <path>\`) or audit a forced lock (\`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock <key> <path> --force <reason>\`) before continuing.`;
 }
 
 function suggestionForBrief(): string {
@@ -392,7 +392,7 @@ export function handlePostToolUse(input: HookInput): HookDecision {
     const lockFailLines = extractLockFailDeductions(input);
     if (lockFailLines.length > 0) {
       blocks.push(
-        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`rubrix lock <key> <path> --force "<reason>"\`:\n${lockFailLines
+        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock <key> <path> --force "<reason>"\`:\n${lockFailLines
           .map((l) => `  - ${l}`)
           .join("\n")}\n</rubrix-suggestion>`,
       );
@@ -400,7 +400,7 @@ export function handlePostToolUse(input: HookInput): HookDecision {
     const forced = listForcedArtifacts(contract);
     if (forced.length > 0) {
       blocks.push(
-        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`rubrix report\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
+        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" report <path>\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
       );
     }
   }
