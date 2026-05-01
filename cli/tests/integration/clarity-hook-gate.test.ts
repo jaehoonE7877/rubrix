@@ -259,6 +259,31 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
+    it("(codex follow-up #3 P1) PreToolUse blocks `rubrix report --out src/foo.ts` on clarity breach (--out file-writing flag)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} --out src/foo.ts` },
+      });
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("v1.2 clarity invariant");
+    });
+
+    it("(codex follow-up #3 P1) PreToolUse blocks `rubrix report --out=src/foo.ts` (=-form of file-writing flag)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} --out=src/foo.ts` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
     it("(codex follow-up #2 P1) PreToolUse blocks command-substitution `rubrix lock $(some)` on clarity breach", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
