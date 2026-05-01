@@ -646,6 +646,46 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(glob.decision).toBe("allow");
     });
 
+    it("(codex follow-up #16 P2) PreToolUse allows `node \"$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js\" lock ...` (portable installed-plugin form, double-quoted)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const fakeRoot = "/Users/me/.claude/plugins/cache/rubrix/rubrix/1.2.0";
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      process.env.CLAUDE_PLUGIN_ROOT = fakeRoot;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `node "$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js" lock plan ${path} --force "audit"` },
+        });
+        expect(decision.decision).toBe("allow");
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+        else process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+    });
+
+    it("(codex follow-up #16 P2) PreToolUse blocks `$OTHERVAR/cli/bin/rubrix.js` (only $CLAUDE_PLUGIN_ROOT is the safe expansion)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const fakeRoot = "/Users/me/.claude/plugins/cache/rubrix/rubrix/1.2.0";
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      process.env.CLAUDE_PLUGIN_ROOT = fakeRoot;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `node "$HOME/cli/bin/rubrix.js" lock plan ${path}` },
+        });
+        expect(decision.decision).toBe("block");
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+        else process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+    });
+
     it("(codex follow-up #15 P2) PreToolUse allows LS and NotebookRead on clarity breach (extended read-only allowlist)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);

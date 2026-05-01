@@ -64,6 +64,17 @@ function isBundledRubrixScriptPath(scriptPath: string): boolean {
   return BUNDLED_RUBRIX_JS_PATHS.has(scriptPath);
 }
 
+const PLUGIN_ROOT_VAR = "CLAUDE_PLUGIN_ROOT";
+
+function tryExpandPluginRoot(cmd: string, dollarIdx: number): { value: string; advance: number } | null {
+  if (cmd.slice(dollarIdx + 1, dollarIdx + 1 + PLUGIN_ROOT_VAR.length) !== PLUGIN_ROOT_VAR) return null;
+  const after = cmd[dollarIdx + 1 + PLUGIN_ROOT_VAR.length];
+  if (after !== undefined && !/[\/"\s]/.test(after)) return null;
+  const root = process.env[PLUGIN_ROOT_VAR];
+  if (!root) return null;
+  return { value: root.replace(/\/+$/, ""), advance: PLUGIN_ROOT_VAR.length };
+}
+
 function tokenizeShellSafe(cmd: string): string[] | null {
   const tokens: string[] = [];
   let cur = "";
@@ -88,7 +99,15 @@ function tokenizeShellSafe(cmd: string): string[] | null {
         hasContent = true;
         continue;
       }
-      if (ch === "$" || ch === "`") return null;
+      if (ch === "$") {
+        const sub = tryExpandPluginRoot(cmd, i);
+        if (!sub) return null;
+        cur += sub.value;
+        i += sub.advance;
+        hasContent = true;
+        continue;
+      }
+      if (ch === "`") return null;
       cur += ch;
       hasContent = true;
       continue;
@@ -104,7 +123,15 @@ function tokenizeShellSafe(cmd: string): string[] | null {
       i++;
       continue;
     }
-    if (ch === "$" || ch === "`" || ch === "{" || ch === "}" || ch === "~" || ch === "*" || ch === "?" || ch === "[" || ch === "]") return null;
+    if (ch === "$") {
+      const sub = tryExpandPluginRoot(cmd, i);
+      if (!sub) return null;
+      cur += sub.value;
+      i += sub.advance;
+      hasContent = true;
+      continue;
+    }
+    if (ch === "`" || ch === "{" || ch === "}" || ch === "~" || ch === "*" || ch === "?" || ch === "[" || ch === "]") return null;
     if (ch === ";" || ch === "&" || ch === "|" || ch === "<" || ch === ">" || ch === "\n" || ch === "\r") return null;
     if (ch === " " || ch === "\t") {
       if (hasContent) { tokens.push(cur); cur = ""; hasContent = false; }
