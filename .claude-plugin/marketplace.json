@@ -13,7 +13,7 @@
         "url": "https://github.com/jaehoonE7877/rubrix.git"
       },
       "description": "rubrix.json drives the lifecycle; hooks, CLI, skills, and subagents enforce it.",
-      "version": "1.1.2",
+      "version": "1.2.0",
       "author": {
         "name": "Jaehoon Seo"
       },
