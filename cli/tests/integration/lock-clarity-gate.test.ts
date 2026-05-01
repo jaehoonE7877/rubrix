@@ -125,7 +125,12 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
       const code = lockCommand({ key: "plan", path, force: "audit", env: {} });
       expect(code).toBe(3);
       expect(cap.stderr).toContain(`state is ${terminalState}`);
-      expect(cap.stderr).toContain("rubrix state set");
+      if (terminalState === "Failed") {
+        expect(cap.stderr).toContain("rubrix state set");
+        expect(cap.stderr).toContain("PlanDrafted");
+      } else {
+        expect(cap.stderr).toContain("Edit rubrix.json directly");
+      }
       const after = JSON.parse(readFileSync(path, "utf8"));
       expect(after.state).toBe(terminalState);
       expect(after.scores).toEqual([{ criterion: "ok", score: 0.9 }]);

@@ -141,7 +141,11 @@ function isRubrixRecoveryBash(input: HookInput): boolean {
     return false;
   }
   const sub = argv[subCmdIdx];
-  if (typeof sub !== "string" || !RUBRIX_RECOVERY_SUBCMDS.has(sub)) return false;
+  if (typeof sub !== "string") return false;
+  if (sub === "state") {
+    return argv[subCmdIdx + 1] === "set" && argv[subCmdIdx + 3] === "PlanDrafted";
+  }
+  if (!RUBRIX_RECOVERY_SUBCMDS.has(sub)) return false;
   for (const arg of argv.slice(subCmdIdx + 1)) {
     if (arg === "--out" || arg.startsWith("--out=")) return false;
   }

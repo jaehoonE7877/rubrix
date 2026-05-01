@@ -29,10 +29,15 @@ export function lockCommand(opts: LockOptions): number {
     const c = loadContract(opts.path);
     const { from, to } = lockTarget(opts.key);
     const isReLock = c.locks[opts.key] === true;
-    const TERMINAL_OR_SCORING: ReadonlyArray<string> = ["Scoring", "Passed", "Failed"];
-    if (isReLock && TERMINAL_OR_SCORING.includes(c.state)) {
+    if (isReLock && c.state === "Failed") {
       process.stderr.write(
-        `cannot lock ${opts.key}: state is ${c.state} (terminal/scoring); roll back via \`rubrix state set ${opts.path} PlanDrafted\` first to enter the documented Failed/Passed → PlanDrafted recovery loop.\n`,
+        `cannot lock ${opts.key}: state is Failed; use the documented recovery loop \`rubrix state set ${opts.path} PlanDrafted\` first, then re-lock.\n`,
+      );
+      return 3;
+    }
+    if (isReLock && (c.state === "Scoring" || c.state === "Passed")) {
+      process.stderr.write(
+        `cannot lock ${opts.key}: state is ${c.state}; this terminal/in-flight state has no documented rollback. Edit rubrix.json directly to roll the contract back to PlanDrafted (rubrix.json edits are exempt from the v1.2 lock gate), then re-lock.\n`,
       );
       return 3;
     }

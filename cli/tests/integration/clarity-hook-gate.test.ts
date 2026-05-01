@@ -579,6 +579,42 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       }
     });
 
+    it("(codex follow-up #14 P2) PreToolUse allows `rubrix state set <path> PlanDrafted` on clarity breach (Failed-loop rollback executable)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix state set ${path} PlanDrafted` },
+      });
+      expect(decision.decision).toBe("allow");
+    });
+
+    it("(codex follow-up #14 P2) PreToolUse blocks `rubrix state set <path> Passed` (only PlanDrafted target is exempted)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix state set ${path} Passed` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #14 P2) PreToolUse blocks `rubrix state get` (only the specific rollback `state set ... PlanDrafted` form is exempted)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix state get ${path}` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
     it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
