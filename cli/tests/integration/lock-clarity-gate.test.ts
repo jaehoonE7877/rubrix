@@ -101,7 +101,7 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
     expect(after.rubric.clarity.threshold).toBe(0);
   });
 
-  it("(codex follow-up P2) scoreClarity reads process.env when env is omitted (CLI entrypoint path)", () => {
+  it("(codex follow-up #4 P2) lockCommand falls back to process.env at the CLI boundary so RUBRIX_SKIP_BRIEF=1 works without explicit env arg", () => {
     const c = baseV12Drafted();
     c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
     c.rubric = {
@@ -124,6 +124,26 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
       const after = JSON.parse(readFileSync(path, "utf8"));
       const codes = (after.rubric.clarity.deductions ?? []).map((d: { code: string }) => d.code);
       expect(codes).not.toContain("uncovered_axis");
+    } finally {
+      if (prev === undefined) delete process.env.RUBRIX_SKIP_BRIEF;
+      else process.env.RUBRIX_SKIP_BRIEF = prev;
+    }
+  });
+
+  it("(codex follow-up #4 P2) core scoreClarity stays env-deterministic: RUBRIX_SKIP_BRIEF in process.env does NOT leak into a direct call with no env arg", async () => {
+    const { scoreClarity } = await import("../../src/core/clarity.ts");
+    const c = baseV12Drafted();
+    c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{ id: "x", description: "short", weight: 1, axis: "security" }],
+    };
+    const prev = process.env.RUBRIX_SKIP_BRIEF;
+    process.env.RUBRIX_SKIP_BRIEF = "1";
+    try {
+      const r = scoreClarity({ contract: c, key: "rubric", threshold: 0.75 });
+      const codes = r.clarity.deductions.map((d) => d.code);
+      expect(codes).toContain("uncovered_axis");
     } finally {
       if (prev === undefined) delete process.env.RUBRIX_SKIP_BRIEF;
       else process.env.RUBRIX_SKIP_BRIEF = prev;

@@ -72,11 +72,12 @@ export function lockCommand(opts: LockOptions): number {
     }
     if (isV12Plus(c)) {
       const force = typeof opts.force === "string" ? opts.force.trim() : undefined;
+      const env = opts.env ?? process.env;
       const threshold = resolveClarityThreshold(c, opts.key, {
         override: opts.threshold,
-        env: opts.env,
+        env,
       });
-      const result = scoreClarity({ contract: c, key: opts.key, threshold, env: opts.env });
+      const result = scoreClarity({ contract: c, key: opts.key, threshold, env });
       if (!result.ok && force === undefined) {
         process.stderr.write(
           `cannot lock ${opts.key}: clarity ${result.clarity.score} below threshold ${result.clarity.threshold}\n` +

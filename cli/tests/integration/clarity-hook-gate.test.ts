@@ -296,6 +296,54 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(decision.decision).toBe("block");
     });
 
+    it("(codex follow-up #4 P1) PreToolUse blocks `rubrix report\\nsed -i ...` (newline-chained Bash) on clarity breach", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path}\nsed -i 's/x/y/' src/foo.ts` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #4 P1) PreToolUse blocks `node scripts/mutate.js rubrix report ...` (rubrix as argument, not script)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `node scripts/mutate.js rubrix report ${path}` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #4 P1) PreToolUse blocks quoted `\"--out\" src/foo.ts` (whitespace+quoted form of file-write flag)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} "--out" src/foo.ts` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
+    it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `node cli/bin/rubrix.js lock plan ${path} --force "vendor freeze"` },
+      });
+      expect(decision.decision).toBe("allow");
+    });
+
     it("(codex follow-up P2) PreToolUse allows Glob/Grep diagnostics on clarity breach (read-only tools)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
