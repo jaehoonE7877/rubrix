@@ -101,6 +101,37 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
     expect(after.rubric.clarity.threshold).toBe(0);
   });
 
+  it("(codex follow-up #13 P2) lockCommand refuses re-lock from Failed/Scoring/Passed states (forces documented rollback loop)", () => {
+    for (const terminalState of ["Scoring", "Passed", "Failed"] as const) {
+      const c = baseV12Drafted();
+      c.rubric = {
+        threshold: 0.5,
+        criteria: [{
+          id: "ok",
+          description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+          weight: 1,
+          floor: 0.7,
+          axis: "correctness",
+          verify: "vitest tests/example.test.ts",
+        }],
+        clarity: clarity(0.95, 0.75),
+      };
+      c.matrix = { rows: [{ id: "r1", criterion: "ok", evidence_required: "An adequately long evidence requirement description without vague language tokens.", verify: "manual review" }], clarity: clarity(0.95, 0.80) };
+      c.plan = { steps: [{ id: "s1", action: "An adequately long action description without any vague language tokens here.", covers: ["r1"] }], clarity: clarity(0.95, 0.70) };
+      c.state = terminalState;
+      c.locks = { rubric: true, matrix: true, plan: true };
+      c.scores = [{ criterion: "ok", score: 0.9 }];
+      const path = tempContractFile(c);
+      const code = lockCommand({ key: "plan", path, force: "audit", env: {} });
+      expect(code).toBe(3);
+      expect(cap.stderr).toContain(`state is ${terminalState}`);
+      expect(cap.stderr).toContain("rubrix state set");
+      const after = JSON.parse(readFileSync(path, "utf8"));
+      expect(after.state).toBe(terminalState);
+      expect(after.scores).toEqual([{ criterion: "ok", score: 0.9 }]);
+    }
+  });
+
   it("(codex follow-up #12 P2) re-lock upstream cascades: clears downstream locks/clarity and rolls state back to *Locked", () => {
     const c = baseV12Drafted();
     c.rubric = {

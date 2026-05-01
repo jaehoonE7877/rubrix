@@ -539,6 +539,26 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       }
     });
 
+    it("(codex follow-up #13 P2) PreToolUse blocks `node cli/bin/rubrix.js ...` (relative form) when CLAUDE_PLUGIN_ROOT is set — relative could resolve to workspace's own file", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const fakeRoot = "/Users/me/.claude/plugins/cache/rubrix/rubrix/1.2.0";
+      const prev = process.env.CLAUDE_PLUGIN_ROOT;
+      process.env.CLAUDE_PLUGIN_ROOT = fakeRoot;
+      try {
+        const decision = handlePreToolUse({
+          cwd: dirname(path),
+          contract_path: path,
+          tool_name: "Bash",
+          tool_input: { command: `node cli/bin/rubrix.js lock plan ${path}` },
+        });
+        expect(decision.decision).toBe("block");
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+        else process.env.CLAUDE_PLUGIN_ROOT = prev;
+      }
+    });
+
     it("(codex follow-up #12 P2) PreToolUse blocks `node /tmp/imposter/cli/bin/rubrix.js lock ...` even with CLAUDE_PLUGIN_ROOT set elsewhere", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);

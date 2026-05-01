@@ -29,6 +29,13 @@ export function lockCommand(opts: LockOptions): number {
     const c = loadContract(opts.path);
     const { from, to } = lockTarget(opts.key);
     const isReLock = c.locks[opts.key] === true;
+    const TERMINAL_OR_SCORING: ReadonlyArray<string> = ["Scoring", "Passed", "Failed"];
+    if (isReLock && TERMINAL_OR_SCORING.includes(c.state)) {
+      process.stderr.write(
+        `cannot lock ${opts.key}: state is ${c.state} (terminal/scoring); roll back via \`rubrix state set ${opts.path} PlanDrafted\` first to enter the documented Failed/Passed → PlanDrafted recovery loop.\n`,
+      );
+      return 3;
+    }
     if (!isReLock && c.state !== from) {
       process.stderr.write(`cannot lock ${opts.key}: state is ${c.state}, expected ${from}\n`);
       return 3;

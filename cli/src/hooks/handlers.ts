@@ -56,11 +56,12 @@ const RUBRIX_RECOVERY_SUBCMDS = new Set([
 const BUNDLED_RUBRIX_JS_PATHS = new Set(["cli/bin/rubrix.js", "./cli/bin/rubrix.js"]);
 
 function isBundledRubrixScriptPath(scriptPath: string): boolean {
-  if (BUNDLED_RUBRIX_JS_PATHS.has(scriptPath)) return true;
   const root = process.env.CLAUDE_PLUGIN_ROOT;
-  if (!root) return false;
-  const expected = root.replace(/\/+$/, "") + "/cli/bin/rubrix.js";
-  return scriptPath === expected;
+  if (root) {
+    const expected = root.replace(/\/+$/, "") + "/cli/bin/rubrix.js";
+    return scriptPath === expected;
+  }
+  return BUNDLED_RUBRIX_JS_PATHS.has(scriptPath);
 }
 
 function tokenizeShellSafe(cmd: string): string[] | null {
