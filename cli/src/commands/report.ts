@@ -1,7 +1,8 @@
 import { writeFileSync } from "node:fs";
-import { ContractError, loadContract, type RubrixContract } from "../core/contract.ts";
+import { ContractError, loadContract, type ArtifactKey, type RubrixContract } from "../core/contract.ts";
 import { evaluateGate } from "./gate.ts";
 import { AXES, resolveAxisDepth } from "../core/brief.ts";
+import { isV12Plus } from "../core/version.ts";
 
 export interface ReportOptions {
   path: string;
@@ -92,7 +93,53 @@ export function buildReport(path: string): string {
     }
     lines.push("");
   }
+  if (isV12Plus(c)) {
+    const forced = collectForcedLocks(c);
+    lines.push(`## Forced Locks`);
+    lines.push("");
+    if (forced.length === 0) {
+      lines.push("No forced locks.");
+      lines.push("");
+    } else {
+      lines.push("| artifact | score | threshold | forced_at | reason |");
+      lines.push("| --- | --- | --- | --- | --- |");
+      for (const f of forced) {
+        lines.push(`| ${f.artifact} | ${f.score} | ${f.threshold} | ${f.forced_at} | ${escapeTableCell(f.reason)} |`);
+      }
+      lines.push("");
+    }
+  }
   return lines.join("\n");
+}
+
+interface ForcedLockRow {
+  artifact: ArtifactKey;
+  score: number;
+  threshold: number;
+  forced_at: string;
+  reason: string;
+}
+
+function escapeTableCell(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ⏎ ");
+}
+
+function collectForcedLocks(c: RubrixContract): ForcedLockRow[] {
+  const out: ForcedLockRow[] = [];
+  const keys: ArtifactKey[] = ["rubric", "matrix", "plan"];
+  for (const key of keys) {
+    const cl = c[key]?.clarity;
+    if (cl?.forced) {
+      out.push({
+        artifact: key,
+        score: cl.score,
+        threshold: cl.threshold,
+        forced_at: cl.forced_at ?? "-",
+        reason: cl.force_reason ?? "-",
+      });
+    }
+  }
+  return out;
 }
 
 function isV11Contract(c: RubrixContract): boolean {

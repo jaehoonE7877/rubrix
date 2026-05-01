@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { formatError, validateContract, type RubrixContract } from "../core/contract.ts";
 import { isCalibrated } from "../core/brief.ts";
+import { checkClarityInvariants } from "../core/clarity-gate.ts";
 
 export interface ValidateOptions {
   path: string;
@@ -31,6 +32,7 @@ export function runValidate(opts: ValidateOptions): ValidateOutput {
   const data = JSON.parse(raw) as unknown;
   const result = validateContract(data);
   const warnings: string[] = [];
+  const extraErrors: string[] = [];
   if (result.ok) {
     const c = data as RubrixContract;
     if (STATES_REQUIRING_BRIEF.has(c.state) && !isCalibrated(c)) {
@@ -41,10 +43,12 @@ export function runValidate(opts: ValidateOptions): ValidateOutput {
         : " — run /rubrix:brief to calibrate (or set RUBRIX_SKIP_BRIEF=1)";
       warnings.push(`intent.brief is missing or not calibrated at state=${c.state}${suffix}`);
     }
+    extraErrors.push(...checkClarityInvariants(c).errors);
   }
+  const errors = result.errors.map(formatError).concat(extraErrors);
   return {
-    ok: result.ok,
-    errors: result.errors.map(formatError),
+    ok: result.ok && extraErrors.length === 0,
+    errors,
     warnings,
   };
 }

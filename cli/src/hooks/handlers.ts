@@ -1,8 +1,10 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { ContractError, loadContract } from "../core/contract.ts";
+import { ContractError, loadContract, type ArtifactKey, type RubrixContract } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
+import { firstClarityViolation } from "../core/clarity-gate.ts";
+import { isV12Plus } from "../core/version.ts";
 
 export type HookEvent =
   | "SessionStart"
@@ -120,6 +122,10 @@ function reasonForRubricBlocked(): string {
   return "/rubrix:rubric blocked: intent.brief is not yet calibrated. Run /rubrix:brief first to calibrate intent (or set RUBRIX_SKIP_BRIEF=1).";
 }
 
+function reasonForClarityBreach(violation: string): string {
+  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`rubrix lock <key> <path>\`) or audit a forced lock (\`rubrix lock <key> <path> --force <reason>\`) before continuing.`;
+}
+
 function suggestionForBrief(): string {
   return "<rubrix-suggestion>intent.brief is not calibrated yet — run /rubrix:brief before /rubrix:rubric (or export RUBRIX_SKIP_BRIEF=1 to bypass).</rubrix-suggestion>";
 }
@@ -147,15 +153,24 @@ export function handleUserPromptExpansion(input: HookInput): HookDecision {
   let ctx = "";
   let locksPlan: boolean | null = null;
   let needsBriefHint = false;
+  let clarityBreach: string | null = null;
   try {
     const c = loadContract(path);
     ctx = buildLifecycleContext(c.state, c.locks);
     locksPlan = c.locks.plan;
     needsBriefHint = c.state === "IntentDrafted" && !isCalibrated(c) && !isBriefSkipEnv();
+    clarityBreach = firstClarityViolation(c);
   } catch {
     return {};
   }
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
+  if (clarityBreach && (promptInvokesScore(prompt) || promptInvokesRubric(prompt))) {
+    return {
+      decision: "block",
+      reason: reasonForClarityBreach(clarityBreach),
+      additionalContext: ctx,
+    };
+  }
   if (promptInvokesScore(prompt) && locksPlan === false) {
     return {
       decision: "block",
@@ -182,11 +197,12 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   let state: State;
   let locks: Locks;
   let calibrated = false;
+  let contract: RubrixContract;
   try {
-    const c = loadContract(path);
-    state = c.state;
-    locks = c.locks;
-    calibrated = isCalibrated(c);
+    contract = loadContract(path);
+    state = contract.state;
+    locks = contract.locks;
+    calibrated = isCalibrated(contract);
   } catch (e) {
     return { decision: "block", reason: `rubrix.json invalid: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -194,6 +210,13 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const tool = typeof input.tool_name === "string" ? input.tool_name : "";
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
   const isCodeEdit = CODE_EDITING_TOOLS.has(tool);
+  const editingContractItself = isCodeEdit && targetsContract(input, path);
+  if (!editingContractItself) {
+    const violation = firstClarityViolation(contract);
+    if (violation) {
+      return { decision: "block", reason: reasonForClarityBreach(violation), additionalContext: ctx };
+    }
+  }
   if (!isCodeEdit && promptInvokesRubric(prompt)) {
     if (!calibrated && !isBriefSkipEnv()) {
       return { decision: "block", reason: reasonForRubricBlocked(), additionalContext: ctx };
@@ -207,7 +230,7 @@ export function handlePreToolUse(input: HookInput): HookDecision {
     return { decision: "allow" };
   }
   if (isCodeEdit) {
-    if (targetsContract(input, path)) {
+    if (editingContractItself) {
       return { decision: "allow", reason: "editing rubrix.json contract itself is exempt from code-edit gate" };
     }
     if (!locks.rubric) {
@@ -223,18 +246,76 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   return { decision: "allow" };
 }
 
+const DEDUCTION_PATTERN = /\[(vague_description|missing_evidence|unmeasurable_floor|dangling_reference|uncovered_axis)\][^\n]*/g;
+
 export function handlePostToolUse(input: HookInput): HookDecision {
   const path = defaultContractPath(input);
   if (!existsSync(path)) return {};
+  let contract: RubrixContract;
   try {
-    loadContract(path);
-    return {};
+    contract = loadContract(path);
   } catch (e) {
     if (e instanceof ContractError) {
       return { systemMessage: `[rubrix] contract drifted from schema after tool run: ${e.message}` };
     }
     return {};
   }
+  const blocks: string[] = [];
+  if (isV12Plus(contract)) {
+    const lockFailLines = extractLockFailDeductions(input);
+    if (lockFailLines.length > 0) {
+      blocks.push(
+        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`rubrix lock <key> <path> --force "<reason>"\`:\n${lockFailLines
+          .map((l) => `  - ${l}`)
+          .join("\n")}\n</rubrix-suggestion>`,
+      );
+    }
+    const forced = listForcedArtifacts(contract);
+    if (forced.length > 0) {
+      blocks.push(
+        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`rubrix report\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
+      );
+    }
+  }
+  if (blocks.length === 0) return {};
+  return { additionalContext: blocks.join("\n") };
+}
+
+function extractLockFailDeductions(input: HookInput): string[] {
+  const tool = typeof input.tool_name === "string" ? input.tool_name : "";
+  if (tool !== "Bash") return [];
+  const ti = input.tool_input as Record<string, unknown> | undefined;
+  const cmd = typeof ti?.command === "string" ? ti.command : "";
+  if (!cmd.includes("rubrix") || !/\block\b/.test(cmd)) return [];
+  const tr = (input as Record<string, unknown>).tool_response;
+  const stderr = collectStderr(tr);
+  if (!stderr) return [];
+  if (!stderr.includes("below threshold")) return [];
+  const out: string[] = [];
+  let match: RegExpExecArray | null;
+  DEDUCTION_PATTERN.lastIndex = 0;
+  while ((match = DEDUCTION_PATTERN.exec(stderr)) !== null) {
+    out.push(match[0].trim());
+  }
+  return out;
+}
+
+function collectStderr(tr: unknown): string | null {
+  if (typeof tr === "string") return tr;
+  if (tr === null || typeof tr !== "object") return null;
+  const obj = tr as Record<string, unknown>;
+  for (const field of ["stderr", "error", "output", "content"]) {
+    const v = obj[field];
+    if (typeof v === "string") return v;
+  }
+  return null;
+}
+
+function listForcedArtifacts(c: RubrixContract): ArtifactKey[] {
+  const out: ArtifactKey[] = [];
+  const keys: ArtifactKey[] = ["rubric", "matrix", "plan"];
+  for (const k of keys) if (c[k]?.clarity?.forced === true) out.push(k);
+  return out;
 }
 
 export function handlePostToolBatch(_input: HookInput): HookDecision {
