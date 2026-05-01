@@ -17,6 +17,7 @@
   "skills": "./skills/",
   "agents": [
     "./agents/brief-interviewer.md",
+    "./agents/clarity-scorer.md",
     "./agents/evidence-finder.md",
     "./agents/matrix-auditor.md",
     "./agents/output-judge.md",

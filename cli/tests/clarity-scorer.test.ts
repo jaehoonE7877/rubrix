@@ -131,7 +131,10 @@ describe("scoreClarity heuristic stub (v1.2/PR #2)", () => {
     const order = ["vague_description", "missing_evidence", "unmeasurable_floor", "dangling_reference", "uncovered_axis"];
     const got = r.clarity.deductions.map((d) => d.code);
     for (let i = 1; i < got.length; i++) {
-      expect(order.indexOf(got[i])).toBeGreaterThanOrEqual(order.indexOf(got[i - 1]));
+      const cur = got[i];
+      const prev = got[i - 1];
+      if (cur === undefined || prev === undefined) throw new Error("unexpected undefined deduction code");
+      expect(order.indexOf(cur)).toBeGreaterThanOrEqual(order.indexOf(prev));
     }
   });
 
