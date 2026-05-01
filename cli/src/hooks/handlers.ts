@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { ContractError, loadContract, type ArtifactKey, type RubrixContract } from "../core/contract.ts";
 import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
-import { firstClarityViolation } from "../core/clarity-gate.ts";
+import { firstClarityViolation, recoveryCliPrefixForEnv } from "../core/clarity-gate.ts";
 import { isV12Plus } from "../core/version.ts";
 
 export type HookEvent =
@@ -47,8 +47,160 @@ export interface HookDecision {
 }
 
 const CODE_EDITING_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
+const READ_ONLY_TOOLS = new Set(["Read", "Glob", "Grep", "LS", "NotebookRead"]);
 const SCORE_TRIGGERS = new Set(["/score", "score", "/rubrix:score"]);
 const RUBRIC_TRIGGERS = new Set(["/rubric", "rubric", "/rubrix:rubric"]);
+const RUBRIX_RECOVERY_SUBCMDS = new Set([
+  "lock", "report", "validate", "score-clarity",
+]);
+const BUNDLED_RUBRIX_JS_PATHS = new Set(["cli/bin/rubrix.js", "./cli/bin/rubrix.js"]);
+
+function isBundledRubrixScriptPath(scriptPath: string): boolean {
+  const root = process.env.CLAUDE_PLUGIN_ROOT;
+  if (root) {
+    const expected = root.replace(/\/+$/, "") + "/cli/bin/rubrix.js";
+    return scriptPath === expected;
+  }
+  return BUNDLED_RUBRIX_JS_PATHS.has(scriptPath);
+}
+
+const PLUGIN_ROOT_VAR = "CLAUDE_PLUGIN_ROOT";
+
+function tryExpandPluginRoot(cmd: string, dollarIdx: number): { value: string; advance: number } | null {
+  if (cmd.slice(dollarIdx + 1, dollarIdx + 1 + PLUGIN_ROOT_VAR.length) !== PLUGIN_ROOT_VAR) return null;
+  const after = cmd[dollarIdx + 1 + PLUGIN_ROOT_VAR.length];
+  if (after !== undefined && !/[\/"\s]/.test(after)) return null;
+  const root = process.env[PLUGIN_ROOT_VAR];
+  if (!root) return null;
+  return { value: root.replace(/\/+$/, ""), advance: PLUGIN_ROOT_VAR.length };
+}
+
+function tokenizeShellSafe(cmd: string): string[] | null {
+  const tokens: string[] = [];
+  let cur = "";
+  let inSingle = false;
+  let inDouble = false;
+  let hasContent = false;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i] as string;
+    if (inSingle) {
+      if (ch === "'") { inSingle = false; continue; }
+      cur += ch;
+      hasContent = true;
+      continue;
+    }
+    if (inDouble) {
+      if (ch === '"') { inDouble = false; continue; }
+      if (ch === "\\" && i + 1 < cmd.length) {
+        const next = cmd[i + 1] as string;
+        if (next === "\n" || next === "\r") return null;
+        cur += next;
+        i++;
+        hasContent = true;
+        continue;
+      }
+      if (ch === "$") {
+        const sub = tryExpandPluginRoot(cmd, i);
+        if (!sub) return null;
+        cur += sub.value;
+        i += sub.advance;
+        hasContent = true;
+        continue;
+      }
+      if (ch === "`") return null;
+      cur += ch;
+      hasContent = true;
+      continue;
+    }
+    if (ch === "'") { inSingle = true; hasContent = true; continue; }
+    if (ch === '"') { inDouble = true; hasContent = true; continue; }
+    if (ch === "\\") {
+      if (i + 1 >= cmd.length) return null;
+      const next = cmd[i + 1] as string;
+      if (next === "\n" || next === "\r") return null;
+      cur += next;
+      hasContent = true;
+      i++;
+      continue;
+    }
+    if (ch === "$") {
+      const sub = tryExpandPluginRoot(cmd, i);
+      if (!sub) return null;
+      cur += sub.value;
+      i += sub.advance;
+      hasContent = true;
+      continue;
+    }
+    if (ch === "`" || ch === "{" || ch === "}" || ch === "~" || ch === "*" || ch === "?" || ch === "[" || ch === "]" || ch === "(" || ch === ")" || ch === "=") {
+      if (ch === "=" && i > 0 && /[A-Za-z0-9_-]/.test(cmd[i - 1] as string)) {
+        cur += ch;
+        hasContent = true;
+        continue;
+      }
+      return null;
+    }
+    if (ch === ";" || ch === "&" || ch === "|" || ch === "<" || ch === ">" || ch === "\n" || ch === "\r") return null;
+    if (ch === " " || ch === "\t") {
+      if (hasContent) { tokens.push(cur); cur = ""; hasContent = false; }
+      continue;
+    }
+    cur += ch;
+    hasContent = true;
+  }
+  if (inSingle || inDouble) return null;
+  if (hasContent) tokens.push(cur);
+  return tokens;
+}
+
+const SAFE_ENV_PREFIX = "RUBRIX_SKIP_BRIEF=1";
+
+function isRubrixRecoveryBash(input: HookInput, contractPath: string): boolean {
+  if (input.tool_name !== "Bash") return false;
+  const ti = input.tool_input as Record<string, unknown> | undefined;
+  const raw = typeof ti?.command === "string" ? ti.command.trim() : "";
+  if (!raw) return false;
+  const tokens = tokenizeShellSafe(raw);
+  if (!tokens || tokens.length < 2) return false;
+  const argv = tokens[0] === SAFE_ENV_PREFIX ? tokens.slice(1) : tokens;
+  if (argv.length < 2) return false;
+  if (/^[A-Z_][A-Z0-9_]*=/.test(argv[0] as string)) return false;
+  if (argv[0] !== "node" || argv.length < 3) return false;
+  const scriptPath = argv[1] as string;
+  if (!isBundledRubrixScriptPath(scriptPath)) return false;
+  const subCmdIdx = 2;
+  const sub = argv[subCmdIdx];
+  if (typeof sub !== "string") return false;
+  const cwd = typeof input.cwd === "string" ? input.cwd : process.cwd();
+  const expectedPositionals: Record<string, number> = {
+    lock: 2,
+    "score-clarity": 2,
+    report: 1,
+    validate: 1,
+  };
+  if (sub === "state") {
+    if (argv[subCmdIdx + 1] !== "set") return false;
+    const path0 = argv[subCmdIdx + 2];
+    if (typeof path0 !== "string" || path0.startsWith("--")) return false;
+    if (argv[subCmdIdx + 3] !== "PlanDrafted") return false;
+    if (resolve(cwd, path0) !== resolve(contractPath)) return false;
+    for (const arg of argv.slice(subCmdIdx + 4)) {
+      if (arg === "--out" || arg.startsWith("--out=")) return false;
+    }
+    return true;
+  }
+  if (!(sub in expectedPositionals)) return false;
+  const expected = expectedPositionals[sub] as number;
+  for (let i = 1; i <= expected; i++) {
+    const a = argv[subCmdIdx + i];
+    if (typeof a !== "string" || a.startsWith("--") || a.startsWith("-")) return false;
+  }
+  const targetPath = argv[subCmdIdx + expected];
+  if (typeof targetPath !== "string" || resolve(cwd, targetPath) !== resolve(contractPath)) return false;
+  for (const arg of argv.slice(subCmdIdx + expected + 1)) {
+    if (arg === "--out" || arg.startsWith("--out=")) return false;
+  }
+  return true;
+}
 
 function promptInvokesScore(prompt: string): boolean {
   return promptInvokes(prompt, SCORE_TRIGGERS);
@@ -123,7 +275,8 @@ function reasonForRubricBlocked(): string {
 }
 
 function reasonForClarityBreach(violation: string): string {
-  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`rubrix lock <key> <path>\`) or audit a forced lock (\`rubrix lock <key> <path> --force <reason>\`) before continuing.`;
+  const cli = recoveryCliPrefixForEnv();
+  return `rubrix.json v1.2 clarity invariant breached: ${violation}. Re-lock the offending artifact (run \`${cli} lock <key> <path>\`) or audit a forced lock (\`${cli} lock <key> <path> --force <reason>\`) before continuing.`;
 }
 
 function suggestionForBrief(): string {
@@ -211,9 +364,13 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   const prompt = typeof input.prompt === "string" ? input.prompt.trim().toLowerCase() : "";
   const isCodeEdit = CODE_EDITING_TOOLS.has(tool);
   const editingContractItself = isCodeEdit && targetsContract(input, path);
-  if (!editingContractItself) {
-    const violation = firstClarityViolation(contract);
-    if (violation) {
+  const violation = firstClarityViolation(contract);
+  if (violation !== null) {
+    const isReadOnlyTool = READ_ONLY_TOOLS.has(tool);
+    const isRecoveryBash = isRubrixRecoveryBash(input, path);
+    const isExemptFromBreachGate = editingContractItself || isReadOnlyTool || isRecoveryBash;
+    const triggersGatedSkill = !isCodeEdit && (promptInvokesRubric(prompt) || promptInvokesScore(prompt));
+    if (!isExemptFromBreachGate || triggersGatedSkill) {
       return { decision: "block", reason: reasonForClarityBreach(violation), additionalContext: ctx };
     }
   }
@@ -265,7 +422,7 @@ export function handlePostToolUse(input: HookInput): HookDecision {
     const lockFailLines = extractLockFailDeductions(input);
     if (lockFailLines.length > 0) {
       blocks.push(
-        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`rubrix lock <key> <path> --force "<reason>"\`:\n${lockFailLines
+        `<rubrix-suggestion>v1.2 lock refused — clarity below threshold. Address each deduction or audit a forced lock with \`${recoveryCliPrefixForEnv()} lock <key> <path> --force "<reason>"\`:\n${lockFailLines
           .map((l) => `  - ${l}`)
           .join("\n")}\n</rubrix-suggestion>`,
       );
@@ -273,7 +430,7 @@ export function handlePostToolUse(input: HookInput): HookDecision {
     const forced = listForcedArtifacts(contract);
     if (forced.length > 0) {
       blocks.push(
-        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`rubrix report\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
+        `<rubrix-suggestion>${forced.length} forced lock${forced.length > 1 ? "s" : ""} on this contract (${forced.join(", ")}). Review with \`${recoveryCliPrefixForEnv()} report <path>\` before /rubrix:score; the audit trail is at c.<key>.clarity.{forced,forced_at,force_reason}.</rubrix-suggestion>`,
       );
     }
   }

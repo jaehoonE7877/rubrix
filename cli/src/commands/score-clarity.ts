@@ -50,15 +50,16 @@ export function scoreClarityCommand(opts: ScoreClarityOptions): number {
     return 3;
   }
 
+  const env = opts.env ?? process.env;
   const threshold = resolveClarityThreshold(contract, key, {
     override: opts.threshold,
-    env: opts.env,
+    env,
   });
 
   if (!isV12Plus(contract)) {
     const out: ScoreClarityOutput = {
       artifact: key,
-      artifact_hash: hashArtifact(contract, key),
+      artifact_hash: hashArtifact(contract, key, env),
       threshold,
       threshold_policy_version: THRESHOLD_POLICY_VERSION,
       scorer_version: SCORER_VERSION,
@@ -73,7 +74,7 @@ export function scoreClarityCommand(opts: ScoreClarityOptions): number {
     return 0;
   }
 
-  const result = scoreClarity({ contract, key, threshold });
+  const result = scoreClarity({ contract, key, threshold, env });
   const out: ScoreClarityOutput = {
     artifact: key,
     artifact_hash: result.clarity.artifact_hash,

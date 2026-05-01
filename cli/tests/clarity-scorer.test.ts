@@ -138,6 +138,36 @@ describe("scoreClarity heuristic stub (v1.2/PR #2)", () => {
     }
   });
 
+  it("(codex follow-up #7 P2) artifact_hash differs between env={} and env={RUBRIX_SKIP_BRIEF:1} so cache key reflects effective scoring depth", () => {
+    const c = baseV12Drafted();
+    c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{ id: "x", description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only", weight: 1, floor: 0.7, axis: "correctness", verify: "vitest tests/example.test.ts" }],
+    };
+    const a = hashArtifact(c, "rubric", {});
+    const b = hashArtifact(c, "rubric", { RUBRIX_SKIP_BRIEF: "1" });
+    expect(a).not.toBe(b);
+    const r1 = scoreClarity({ contract: c, key: "rubric", threshold: 0.75, now: FIXED_NOW, env: {} });
+    const r2 = scoreClarity({ contract: c, key: "rubric", threshold: 0.75, now: FIXED_NOW, env: { RUBRIX_SKIP_BRIEF: "1" } });
+    expect(r1.clarity.artifact_hash).not.toBe(r2.clarity.artifact_hash);
+    expect(r1.clarity.score).not.toBe(r2.clarity.score);
+  });
+
+  it("(codex review #29 P2) honors RUBRIX_SKIP_BRIEF=1 in env and skips uncovered_axis deductions", () => {
+    const c = baseV12Drafted();
+    c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{ id: "x", description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only", weight: 1, floor: 0.7, axis: "correctness", verify: "vitest tests/example.test.ts" }],
+    };
+    const without = scoreClarity({ contract: c, key: "rubric", threshold: 0.75, now: FIXED_NOW, env: {} });
+    const withSkip = scoreClarity({ contract: c, key: "rubric", threshold: 0.75, now: FIXED_NOW, env: { RUBRIX_SKIP_BRIEF: "1" } });
+    expect(without.clarity.deductions.map((d) => d.code)).toContain("uncovered_axis");
+    expect(withSkip.clarity.deductions.map((d) => d.code)).not.toContain("uncovered_axis");
+    expect(withSkip.clarity.score).toBeGreaterThan(without.clarity.score);
+  });
+
   it("score is clamped to 0 when total deduction weight exceeds 1", () => {
     const c = baseV12Drafted();
     c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "deep", ux: "deep", perf: "deep" };

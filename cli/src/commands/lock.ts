@@ -1,9 +1,10 @@
-import { ContractError, loadContract, saveContract } from "../core/contract.ts";
+import { ContractError, loadContract, saveContract, type ArtifactKey } from "../core/contract.ts";
 import { checkMatrixIntegrity, checkPlanIntegrity, checkRubricIntegrity } from "../core/integrity.ts";
 import { lockTarget, type LockKey } from "../core/state.ts";
 import { isV12Plus } from "../core/version.ts";
 import { scoreClarity } from "../core/clarity.ts";
 import { resolveClarityThreshold } from "../core/brief.ts";
+import { checkClarityInvariants, recoveryCliPrefixForEnv } from "../core/clarity-gate.ts";
 
 export interface LockOptions {
   path: string;
@@ -27,7 +28,20 @@ export function lockCommand(opts: LockOptions): number {
   try {
     const c = loadContract(opts.path);
     const { from, to } = lockTarget(opts.key);
-    if (c.state !== from) {
+    const isReLock = c.locks[opts.key] === true;
+    if (isReLock && c.state === "Failed") {
+      process.stderr.write(
+        `cannot lock ${opts.key}: state is Failed; use the documented recovery loop \`${recoveryCliPrefixForEnv(opts.env)} state set ${opts.path} PlanDrafted\` first, then re-lock.\n`,
+      );
+      return 3;
+    }
+    if (isReLock && (c.state === "Scoring" || c.state === "Passed")) {
+      process.stderr.write(
+        `cannot lock ${opts.key}: state is ${c.state}; this terminal/in-flight state has no documented rollback. Edit rubrix.json directly to roll the contract back to PlanDrafted (rubrix.json edits are exempt from the v1.2 lock gate), then re-lock.\n`,
+      );
+      return 3;
+    }
+    if (!isReLock && c.state !== from) {
       process.stderr.write(`cannot lock ${opts.key}: state is ${c.state}, expected ${from}\n`);
       return 3;
     }
@@ -71,19 +85,28 @@ export function lockCommand(opts: LockOptions): number {
       }
     }
     if (isV12Plus(c)) {
+      const upstreamKeys: ArtifactKey[] = upstreamOf(opts.key);
+      const upstreamCheck = checkClarityInvariants({ ...c, locks: pickLocks(c.locks, upstreamKeys) });
+      if (!upstreamCheck.ok) {
+        process.stderr.write(
+          `cannot lock ${opts.key}: upstream clarity invariant breach blocks lifecycle advance:\n${upstreamCheck.errors.join("\n")}\n  hint: re-lock the upstream artifact (with --force <reason> if needed) before advancing.\n`,
+        );
+        return 3;
+      }
       const force = typeof opts.force === "string" ? opts.force.trim() : undefined;
+      const env = opts.env ?? process.env;
       const threshold = resolveClarityThreshold(c, opts.key, {
         override: opts.threshold,
-        env: opts.env,
+        env,
       });
-      const result = scoreClarity({ contract: c, key: opts.key, threshold });
+      const result = scoreClarity({ contract: c, key: opts.key, threshold, env });
       if (!result.ok && force === undefined) {
         process.stderr.write(
           `cannot lock ${opts.key}: clarity ${result.clarity.score} below threshold ${result.clarity.threshold}\n` +
             result.clarity.deductions
               .map((d) => `  - [${d.code}] ${d.message} (weight ${d.weight})`)
               .join("\n") +
-            `\n  hint: refine the ${opts.key} and re-lock, or run \`rubrix lock ${opts.key} ${opts.path} --force "<reason>"\` to audit a forced lock.\n`,
+            `\n  hint: refine the ${opts.key} and re-lock, or run \`${recoveryCliPrefixForEnv(opts.env)} lock ${opts.key} ${opts.path} --force "<reason>"\` to audit a forced lock.\n`,
         );
         return 3;
       }
@@ -94,18 +117,53 @@ export function lockCommand(opts: LockOptions): number {
         clarity.force_reason = force;
         process.stderr.write(
           `!! forced lock: ${opts.key} score=${clarity.score} threshold=${clarity.threshold} reason="${force}"\n` +
-            `   audit trail persisted at c.${opts.key}.clarity (forced=true, forced_at=${clarity.forced_at}). Use \`rubrix report\` to review forced locks.\n`,
+            `   audit trail persisted at c.${opts.key}.clarity (forced=true, forced_at=${clarity.forced_at}). Use \`${recoveryCliPrefixForEnv(opts.env)} report ${opts.path}\` to review forced locks.\n`,
         );
       }
       c[opts.key]!.clarity = clarity;
     }
     c.locks[opts.key] = true;
-    c.state = to;
+    if (isReLock) {
+      const downstream = downstreamOf(opts.key);
+      const invalidated: ArtifactKey[] = [];
+      for (const dk of downstream) {
+        if (c.locks[dk]) invalidated.push(dk);
+        c.locks[dk] = false;
+        if (c[dk]?.clarity) delete c[dk]!.clarity;
+      }
+      c.state = to;
+      if (invalidated.length) {
+        process.stderr.write(
+          `!! re-lock cascade: ${opts.key} re-locked invalidated downstream locks (${invalidated.join(", ")}); re-lock those before /rubrix:score.\n`,
+        );
+      }
+    } else {
+      c.state = to;
+    }
+    if (c.scores) delete c.scores;
     saveContract(opts.path, c);
-    process.stdout.write(`${opts.key} locked -> ${to}\n`);
+    process.stdout.write(isReLock ? `${opts.key} re-locked (state=${c.state})\n` : `${opts.key} locked -> ${to}\n`);
     return 0;
   } catch (e) {
     process.stderr.write((e instanceof Error ? e.message : String(e)) + "\n");
     return e instanceof ContractError ? 2 : 1;
   }
+}
+
+function upstreamOf(key: LockKey): ArtifactKey[] {
+  if (key === "rubric") return [];
+  if (key === "matrix") return ["rubric"];
+  return ["rubric", "matrix"];
+}
+
+function downstreamOf(key: LockKey): ArtifactKey[] {
+  if (key === "rubric") return ["matrix", "plan"];
+  if (key === "matrix") return ["plan"];
+  return [];
+}
+
+function pickLocks(locks: { rubric: boolean; matrix: boolean; plan: boolean }, keys: ArtifactKey[]): { rubric: boolean; matrix: boolean; plan: boolean } {
+  const out = { rubric: false, matrix: false, plan: false };
+  for (const k of keys) out[k] = locks[k];
+  return out;
 }

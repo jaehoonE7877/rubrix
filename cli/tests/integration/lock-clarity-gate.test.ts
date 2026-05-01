@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lockCommand } from "../../src/commands/lock.ts";
-import { baseDrafted, baseV12Drafted, tempContractFile } from "../helpers.ts";
+import { baseDrafted, baseV12Drafted, clarity, tempContractFile } from "../helpers.ts";
 
 interface Cap {
   stdout: string;
@@ -99,5 +99,201 @@ describe("rubrix lock v1.2 clarity gate (PR #2)", () => {
     expect(code).toBe(0);
     const after = JSON.parse(readFileSync(path, "utf8"));
     expect(after.rubric.clarity.threshold).toBe(0);
+  });
+
+  it("(codex follow-up #13 P2) lockCommand refuses re-lock from Failed/Scoring/Passed states (forces documented rollback loop)", () => {
+    for (const terminalState of ["Scoring", "Passed", "Failed"] as const) {
+      const c = baseV12Drafted();
+      c.rubric = {
+        threshold: 0.5,
+        criteria: [{
+          id: "ok",
+          description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+          weight: 1,
+          floor: 0.7,
+          axis: "correctness",
+          verify: "vitest tests/example.test.ts",
+        }],
+        clarity: clarity(0.95, 0.75),
+      };
+      c.matrix = { rows: [{ id: "r1", criterion: "ok", evidence_required: "An adequately long evidence requirement description without vague language tokens.", verify: "manual review" }], clarity: clarity(0.95, 0.80) };
+      c.plan = { steps: [{ id: "s1", action: "An adequately long action description without any vague language tokens here.", covers: ["r1"] }], clarity: clarity(0.95, 0.70) };
+      c.state = terminalState;
+      c.locks = { rubric: true, matrix: true, plan: true };
+      c.scores = [{ criterion: "ok", score: 0.9 }];
+      const path = tempContractFile(c);
+      const code = lockCommand({ key: "plan", path, force: "audit", env: {} });
+      expect(code).toBe(3);
+      expect(cap.stderr).toContain(`state is ${terminalState}`);
+      if (terminalState === "Failed") {
+        expect(cap.stderr).toContain("state set");
+        expect(cap.stderr).toContain("PlanDrafted");
+      } else {
+        expect(cap.stderr).toContain("Edit rubrix.json directly");
+      }
+      const after = JSON.parse(readFileSync(path, "utf8"));
+      expect(after.state).toBe(terminalState);
+      expect(after.scores).toEqual([{ criterion: "ok", score: 0.9 }]);
+    }
+  });
+
+  it("(codex follow-up #12 P2) re-lock upstream cascades: clears downstream locks/clarity and rolls state back to *Locked", () => {
+    const c = baseV12Drafted();
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+      clarity: clarity(0.95, 0.75),
+    };
+    c.matrix = { rows: [{ id: "r1", criterion: "ok", evidence_required: "An adequately long evidence requirement description without vague language tokens.", verify: "manual review" }], clarity: clarity(0.95, 0.80) };
+    c.plan = { steps: [{ id: "s1", action: "An adequately long action description without any vague language tokens here.", covers: ["r1"] }], clarity: clarity(0.95, 0.70) };
+    c.state = "PlanLocked";
+    c.locks = { rubric: true, matrix: true, plan: true };
+    c.scores = [{ criterion: "ok", score: 0.9 }];
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "rubric", path, env: {} });
+    expect(code).toBe(0);
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.state).toBe("RubricLocked");
+    expect(after.locks).toEqual({ rubric: true, matrix: false, plan: false });
+    expect(after.matrix.clarity).toBeUndefined();
+    expect(after.plan.clarity).toBeUndefined();
+    expect(after.scores).toBeUndefined();
+    expect(cap.stderr).toContain("re-lock cascade");
+    expect(cap.stderr).toContain("matrix");
+    expect(cap.stderr).toContain("plan");
+  });
+
+  it("(codex follow-up #11 P2) lockCommand allows in-place re-lock of an already-locked artifact (recovery path executable)", () => {
+    const c = baseV12Drafted();
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+      clarity: clarity(0.95, 0.75),
+    };
+    c.matrix = { rows: [{ id: "r1", criterion: "ok", evidence_required: "An adequately long evidence requirement description without vague language tokens.", verify: "manual review" }] };
+    c.plan = { steps: [{ id: "s1", action: "An adequately long action description without any vague language tokens here.", covers: ["r1"] }] };
+    c.state = "PlanDrafted";
+    c.locks = { rubric: true, matrix: true, plan: false };
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "matrix", path, force: "audit override", env: {} });
+    expect(code).toBe(0);
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.state).toBe("MatrixLocked");
+    expect(after.locks.matrix).toBe(true);
+    expect(after.locks.plan).toBe(false);
+    expect(after.matrix.clarity.forced).toBe(true);
+    expect(after.matrix.clarity.force_reason).toBe("audit override");
+    expect(cap.stdout).toContain("re-locked");
+  });
+
+  it("(codex follow-up #10 P1) lockCommand refuses to advance lifecycle when upstream artifact has clarity invariant breach", () => {
+    const c = baseV12Drafted();
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+    };
+    c.matrix = { rows: [{ id: "r1", criterion: "ok", evidence_required: "An adequately long evidence requirement description without vague language tokens.", verify: "manual review" }] };
+    c.state = "MatrixDrafted";
+    c.locks = { rubric: true, matrix: false, plan: false };
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "matrix", path, env: {} });
+    expect(code).toBe(3);
+    expect(cap.stderr).toContain("upstream clarity invariant breach");
+    expect(cap.stderr).toContain("/rubric/clarity");
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.state).toBe("MatrixDrafted");
+    expect(after.locks.matrix).toBe(false);
+  });
+
+  it("(codex follow-up #4 P2) lockCommand falls back to process.env at the CLI boundary so RUBRIX_SKIP_BRIEF=1 works without explicit env arg", () => {
+    const c = baseV12Drafted();
+    c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+    };
+    const path = tempContractFile(c);
+    const prev = process.env.RUBRIX_SKIP_BRIEF;
+    process.env.RUBRIX_SKIP_BRIEF = "1";
+    try {
+      const code = lockCommand({ key: "rubric", path });
+      expect(code).toBe(0);
+      const after = JSON.parse(readFileSync(path, "utf8"));
+      const codes = (after.rubric.clarity.deductions ?? []).map((d: { code: string }) => d.code);
+      expect(codes).not.toContain("uncovered_axis");
+    } finally {
+      if (prev === undefined) delete process.env.RUBRIX_SKIP_BRIEF;
+      else process.env.RUBRIX_SKIP_BRIEF = prev;
+    }
+  });
+
+  it("(codex follow-up #4 P2) core scoreClarity stays env-deterministic: RUBRIX_SKIP_BRIEF in process.env does NOT leak into a direct call with no env arg", async () => {
+    const { scoreClarity } = await import("../../src/core/clarity.ts");
+    const c = baseV12Drafted();
+    c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{ id: "x", description: "short", weight: 1, axis: "security" }],
+    };
+    const prev = process.env.RUBRIX_SKIP_BRIEF;
+    process.env.RUBRIX_SKIP_BRIEF = "1";
+    try {
+      const r = scoreClarity({ contract: c, key: "rubric", threshold: 0.75 });
+      const codes = r.clarity.deductions.map((d) => d.code);
+      expect(codes).toContain("uncovered_axis");
+    } finally {
+      if (prev === undefined) delete process.env.RUBRIX_SKIP_BRIEF;
+      else process.env.RUBRIX_SKIP_BRIEF = prev;
+    }
+  });
+
+  it("(codex review #29 P2) RUBRIX_SKIP_BRIEF=1 in env propagates to scoreClarity so threshold and deductions agree", () => {
+    const c = baseV12Drafted();
+    c.intent.brief!.axis_depth = { security: "deep", data: "deep", correctness: "standard", ux: "standard", perf: "standard" };
+    c.rubric = {
+      threshold: 0.5,
+      criteria: [{
+        id: "ok",
+        description: "A description that is substantially longer than sixty characters and uses concrete measurable terms only",
+        weight: 1,
+        floor: 0.7,
+        axis: "correctness",
+        verify: "vitest tests/example.test.ts",
+      }],
+    };
+    const path = tempContractFile(c);
+    const code = lockCommand({ key: "rubric", path, env: { RUBRIX_SKIP_BRIEF: "1" } });
+    expect(code).toBe(0);
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    const codes = (after.rubric.clarity.deductions ?? []).map((d: { code: string }) => d.code);
+    expect(codes).not.toContain("uncovered_axis");
   });
 });

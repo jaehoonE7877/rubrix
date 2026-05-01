@@ -45,7 +45,7 @@ describe("PostToolUse v1.2 deduction surface (PR #3)", () => {
       tool_name: "Read",
     });
     expect(decision.additionalContext).toContain("forced lock");
-    expect(decision.additionalContext).toContain("rubrix report");
+    expect(decision.additionalContext).toMatch(/rubrix\.js"? report/);
   });
 
   it("emits nothing on a clean v1.2 contract after a non-lock tool call", () => {
