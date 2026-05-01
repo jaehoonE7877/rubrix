@@ -71,7 +71,14 @@ function tokenizeShellSafe(cmd: string): string[] | null {
     }
     if (inDouble) {
       if (ch === '"') { inDouble = false; continue; }
-      if (ch === "\\" && i + 1 < cmd.length) { cur += cmd[i + 1] as string; i++; hasContent = true; continue; }
+      if (ch === "\\" && i + 1 < cmd.length) {
+        const next = cmd[i + 1] as string;
+        if (next === "\n" || next === "\r") return null;
+        cur += next;
+        i++;
+        hasContent = true;
+        continue;
+      }
       if (ch === "$" || ch === "`") return null;
       cur += ch;
       hasContent = true;
@@ -81,7 +88,9 @@ function tokenizeShellSafe(cmd: string): string[] | null {
     if (ch === '"') { inDouble = true; hasContent = true; continue; }
     if (ch === "\\") {
       if (i + 1 >= cmd.length) return null;
-      cur += cmd[i + 1] as string;
+      const next = cmd[i + 1] as string;
+      if (next === "\n" || next === "\r") return null;
+      cur += next;
       hasContent = true;
       i++;
       continue;

@@ -471,6 +471,18 @@ describe("v1.2 clarity invariant is enforced across hook + gate paths (codex rev
       expect(applyDecision.decision).toBe("block");
     });
 
+    it("(codex follow-up #8 P1) PreToolUse blocks backslash-newline line-continuation in --out (`--o\\<newline>ut=...`)", () => {
+      const c = v12PlanLockedMissingPlanClarity();
+      const path = tempContractFile(c);
+      const decision = handlePreToolUse({
+        cwd: dirname(path),
+        contract_path: path,
+        tool_name: "Bash",
+        tool_input: { command: `rubrix report ${path} --o\\\nut=src/foo.ts` },
+      });
+      expect(decision.decision).toBe("block");
+    });
+
     it("(codex follow-up #4 P1) PreToolUse allows `node cli/bin/rubrix.js lock plan ...` (legitimate node-invocation form)", () => {
       const c = v12PlanLockedMissingPlanClarity();
       const path = tempContractFile(c);
