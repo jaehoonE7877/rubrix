@@ -1,10 +1,33 @@
-import type {
-  CascadeCriterion,
-  ConsensusInternal,
-  MechanicalResult,
-  SemanticResult,
+import {
+  runCascade as runCascadeApi,
+  type CascadeCriterion,
+  type CascadeInternalRecord,
+  type CascadeOptions,
+  type CascadeReturn,
+  type ConsensusInternal,
+  type MechanicalResult,
+  type SemanticResult,
 } from "../src/core/cascade.ts";
 import type { EvaluationPolicy, RubrixContract } from "../src/core/contract.ts";
+
+export function runCascadeForTest(
+  criterion: CascadeCriterion,
+  policy: EvaluationPolicy,
+  contract: RubrixContract,
+  options: CascadeOptions = {},
+): { caller: CascadeReturn; record: CascadeInternalRecord } {
+  let captured: CascadeInternalRecord | undefined;
+  const userSink = options.recordSink;
+  const caller = runCascadeApi(criterion, policy, contract, {
+    ...options,
+    recordSink: (r) => {
+      captured = r;
+      userSink?.(r);
+    },
+  });
+  if (!captured) throw new Error("runCascadeForTest: cascade did not emit a record");
+  return { caller, record: captured };
+}
 
 export function defaultPolicy(overrides: Partial<EvaluationPolicy> = {}): EvaluationPolicy {
   return {

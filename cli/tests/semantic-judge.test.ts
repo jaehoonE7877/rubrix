@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { runCascade } from "../src/core/cascade.ts";
-import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs } from "./helpers-cascade.ts";
+import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs , runCascadeForTest} from "./helpers-cascade.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(here, "../..");
@@ -67,7 +66,7 @@ describe("semantic-judge layer in cascade orchestrator", () => {
       },
     );
 
-    const result = runCascade(
+    const result = runCascadeForTest(
       makeCriterion({ axis: "data" }),
       defaultPolicy(),
       deepBriefContract({
@@ -103,7 +102,7 @@ describe("semantic-judge layer in cascade orchestrator", () => {
       },
     );
 
-    const result = runCascade(
+    const result = runCascadeForTest(
       makeCriterion({ axis: "data" }),
       defaultPolicy(),
       deepBriefContract({

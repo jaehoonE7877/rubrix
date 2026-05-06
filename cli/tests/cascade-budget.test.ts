@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { makeBudgetState, runCascade } from "../src/core/cascade.ts";
-import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs } from "./helpers-cascade.ts";
+import { makeBudgetState,  } from "../src/core/cascade.ts";
+import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs , runCascadeForTest} from "./helpers-cascade.ts";
 
 describe("cascade budget enforcement (max_stage3_criteria)", () => {
   it("with max_stage3_criteria=5 across 10 trigger-eligible criteria, exactly 5 invoke Stage 3 and the other 5 fall back with reason='budget'", () => {
@@ -23,7 +23,7 @@ describe("cascade budget enforcement (max_stage3_criteria)", () => {
 
     const skippedDueToBudget: boolean[] = [];
     for (let i = 0; i < 10; i++) {
-      const r = runCascade(makeCriterion({ id: `c${i}`, axis: "security" }), policy, contract, {
+      const r = runCascadeForTest(makeCriterion({ id: `c${i}`, axis: "security" }), policy, contract, {
         mechanicalChecker: stubs.mechanicalChecker,
         semanticJudge: stubs.semanticJudge,
         consensusPanel: stubs.consensusPanel,
@@ -56,13 +56,13 @@ describe("cascade budget enforcement (max_stage3_criteria)", () => {
     const contract = deepBriefContract();
     const budget = makeBudgetState();
 
-    runCascade(makeCriterion({ id: "first" }), policy, contract, {
+    runCascadeForTest(makeCriterion({ id: "first" }), policy, contract, {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
       budgetState: budget,
     });
-    const second = runCascade(makeCriterion({ id: "second" }), policy, contract, {
+    const second = runCascadeForTest(makeCriterion({ id: "second" }), policy, contract, {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
@@ -92,7 +92,7 @@ describe("cascade budget enforcement (max_stage3_criteria)", () => {
     const contract = deepBriefContract();
     const budget = makeBudgetState();
 
-    const r = runCascade(makeCriterion(), policy, contract, {
+    const r = runCascadeForTest(makeCriterion(), policy, contract, {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,

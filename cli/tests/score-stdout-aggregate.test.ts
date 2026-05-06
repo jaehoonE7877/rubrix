@@ -98,8 +98,14 @@ describe("rubrix score stdout = aggregate only (Codex critical context-isolation
     expect(out).not.toContain("VOTE_LEAK_TO_STDOUT");
   });
 
-  it("when blockers > 0, stdout adds the 'use --explain <id> for details' hint", () => {
+  it("when blockers > 0, stderr (NOT stdout) adds the 'use --explain <id> for details' hint", () => {
     const path = tempContractFile(smallScoringContract());
+    const origErr = process.stderr.write.bind(process.stderr);
+    let errBuf = "";
+    process.stderr.write = ((s: string | Uint8Array) => {
+      errBuf += typeof s === "string" ? s : Buffer.from(s).toString();
+      return true;
+    }) as typeof process.stderr.write;
     const { out } = captureStdout(() =>
       scoreCommand({
         path,
@@ -119,7 +125,9 @@ describe("rubrix score stdout = aggregate only (Codex critical context-isolation
         },
       }),
     );
-    expect(out).toContain("use --explain");
+    process.stderr.write = origErr;
+    expect(out).not.toContain("use --explain");
+    expect(errBuf).toContain("use --explain");
   });
 
   it("when scores are clean (no blockers, no skips), stdout does NOT print the --explain hint", () => {
