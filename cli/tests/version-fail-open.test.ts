@@ -39,7 +39,7 @@ function v13Passed(): RubrixContract {
       ],
     },
   ] as RubrixContract["scores"];
-  (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy = {
+  (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy = {
     source: "brief",
     locked_at: "2026-05-06T00:00:00.000Z",
     approved_by: "rubrix",
@@ -128,42 +128,42 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
 
   it("v1.3.0 contract WITHOUT evaluation_policy fails (fail-closed for v1.3.x)", () => {
     const c = v13Passed();
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.4.0 contract WITHOUT evaluation_policy fails (fail-closed extends to all v1.3+ minors)", () => {
     const c = v13Passed();
     c.version = "1.4.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.5.0 contract WITHOUT evaluation_policy fails", () => {
     const c = v13Passed();
     c.version = "1.5.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v2.0.0 contract WITHOUT evaluation_policy fails (major bump still requires policy)", () => {
     const c = v13Passed();
     c.version = "2.0.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.10.0 contract WITHOUT evaluation_policy fails (10 != [012] — regex excludes only v1.0/v1.1/v1.2)", () => {
     const c = v13Passed();
     c.version = "1.10.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.20.0 contract WITHOUT evaluation_policy fails (20 != [012])", () => {
     const c = v13Passed();
     c.version = "1.20.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
@@ -176,7 +176,7 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
   it("v0.1.0 contract WITHOUT evaluation_policy still validates (v0.x fail-open)", () => {
     const c = v13Passed();
     c.version = "0.1.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(true);
   });
 

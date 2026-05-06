@@ -4,14 +4,14 @@ import { baseV12Drafted, clarity } from "./helpers.ts";
 import { tempContractFile } from "./helpers.ts";
 import type { RubrixContract } from "../src/core/contract.ts";
 
-function v12PassedWithScore(extraScore: Partial<RubrixContract["scores"][number]> = {}): RubrixContract {
+function v12PassedWithScore(extraScore: Partial<NonNullable<RubrixContract["scores"]>[number]> = {}): RubrixContract {
   const c = baseV12Drafted();
   c.state = "Passed";
   c.locks = { rubric: true, matrix: true, plan: true };
   c.rubric!.clarity = clarity(0.9, 0.75);
   c.matrix = { rows: [{ id: "r1", criterion: "c1", evidence_required: "x" }], clarity: clarity(0.9, 0.8) };
   c.plan = { steps: [{ id: "s1", action: "do" }], clarity: clarity(0.9, 0.7) };
-  c.scores = [{ criterion: "c1", score: 0.9, ...extraScore } as RubrixContract["scores"][number]];
+  c.scores = [{ criterion: "c1", score: 0.9, ...extraScore } as NonNullable<RubrixContract["scores"]>[number]];
   return c;
 }
 
@@ -46,7 +46,7 @@ describe("report Consensus column (v1.3 PR #1)", () => {
             prompt_version: "consensus-panel/1.0",
           },
         ],
-      } as Partial<RubrixContract["scores"][number]>),
+      } as Partial<NonNullable<RubrixContract["scores"]>[number]>),
     );
     const md = buildReport(path);
     const gateBlock = md.split("## Gate:")[1] ?? "";
@@ -69,7 +69,7 @@ describe("report Consensus column (v1.3 PR #1)", () => {
             reason: "budget",
           },
         ],
-      } as Partial<RubrixContract["scores"][number]>),
+      } as Partial<NonNullable<RubrixContract["scores"]>[number]>),
     );
     const md = buildReport(path);
     const gateBlock = md.split("## Gate:")[1] ?? "";
