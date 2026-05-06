@@ -61,21 +61,24 @@ export function buildReport(path: string): string {
     lines.push("");
     lines.push(`- total=${g.total.toFixed(3)} threshold=${g.threshold}`);
     lines.push("");
+    const consensusByCriterion = collectConsensusByCriterion(c);
     if (showV11) {
-      lines.push("| criterion | axis | depth | weight | floor | effective floor | score | status |");
-      lines.push("| --- | --- | --- | --- | --- | --- | --- | --- |");
+      lines.push("| criterion | axis | depth | weight | floor | effective floor | score | status | consensus |");
+      lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
       for (const row of g.perCriterion) {
         const cellFloor = row.floor ?? "-";
         const effFloor = row.effectiveFloor ?? row.floor ?? "-";
         const bumped = row.axisDepth === "deep" && row.effectiveFloor !== undefined && (row.floor === undefined || row.floor < row.effectiveFloor);
         const effFloorCell = bumped ? `**${effFloor}** (deep bump)` : `${effFloor}`;
-        lines.push(`| ${row.id} | ${row.axis ?? "-"} | ${row.axisDepth ?? "-"} | ${row.weight} | ${cellFloor} | ${effFloorCell} | ${row.score ?? "-"} | ${row.status} |`);
+        const consensus = consensusByCriterion.get(row.id) ?? "";
+        lines.push(`| ${row.id} | ${row.axis ?? "-"} | ${row.axisDepth ?? "-"} | ${row.weight} | ${cellFloor} | ${effFloorCell} | ${row.score ?? "-"} | ${row.status} | ${consensus} |`);
       }
     } else {
-      lines.push("| criterion | weight | floor | score | status |");
-      lines.push("| --- | --- | --- | --- | --- |");
+      lines.push("| criterion | weight | floor | score | status | consensus |");
+      lines.push("| --- | --- | --- | --- | --- | --- |");
       for (const row of g.perCriterion) {
-        lines.push(`| ${row.id} | ${row.weight} | ${row.floor ?? "-"} | ${row.score ?? "-"} | ${row.status} |`);
+        const consensus = consensusByCriterion.get(row.id) ?? "";
+        lines.push(`| ${row.id} | ${row.weight} | ${row.floor ?? "-"} | ${row.score ?? "-"} | ${row.status} | ${consensus} |`);
       }
     }
     if (g.reasons.length) {
@@ -137,6 +140,25 @@ function collectForcedLocks(c: RubrixContract): ForcedLockRow[] {
         forced_at: cl.forced_at ?? "-",
         reason: cl.force_reason ?? "-",
       });
+    }
+  }
+  return out;
+}
+
+function collectConsensusByCriterion(c: RubrixContract): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!c.scores) return out;
+  for (const s of c.scores) {
+    const history = (s as { stage_history?: Array<{ stage: number; reason?: string }> }).stage_history;
+    if (!history || history.length === 0) continue;
+    const stage3 = history.find((h) => h.stage === 3);
+    if (stage3) {
+      out.set(s.criterion, "stage3");
+      continue;
+    }
+    const skipped = history.find((h) => h.reason === "budget");
+    if (skipped) {
+      out.set(s.criterion, "skipped_due_to_budget");
     }
   }
   return out;

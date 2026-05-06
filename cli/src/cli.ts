@@ -10,6 +10,7 @@ import { lockCommand } from "./commands/lock.ts";
 import { hookCommand } from "./commands/hook.ts";
 import { briefGetCommand, briefInitCommand } from "./commands/brief.ts";
 import { scoreClarityCommand } from "./commands/score-clarity.ts";
+import { scoreCommand } from "./commands/score.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(here, "../package.json"), "utf8")) as { version: string };
@@ -80,6 +81,27 @@ program
   .option("--json", "emit JSON output (default; reserved for symmetry with other commands)")
   .action((key: string, path: string, opts: { threshold?: number; json?: boolean }) => {
     process.exit(scoreClarityCommand({ key, path, threshold: opts.threshold, json: opts.json }));
+  });
+
+program
+  .command("score <path>")
+  .description("v1.3+ multi-evaluator cascade (PR #1 stub: parses flags, prints PR #2 placeholder; cascade orchestrator wires in PR #2)")
+  .option("--stage <n>", "limit cascade to a single stage (1=mechanical, 2=semantic, 3=consensus)", (raw) => {
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1 || n > 3) throw new Error(`--stage must be 1, 2, or 3, got '${raw}'`);
+    return n;
+  })
+  .option("--explain <criterion>", "print full stage_history for a single criterion (read-only diagnostic; main path returns aggregate only)")
+  .option("--approve-expensive", "v1.3+: temporary override of evaluation_policy.estimated_cost_ceiling for this run (audit-logged); default cost gate is lock-time only")
+  .action((path: string, opts: { stage?: number; explain?: string; approveExpensive?: boolean }) => {
+    process.exit(
+      scoreCommand({
+        path,
+        stage: opts.stage,
+        explain: opts.explain,
+        approveExpensive: opts.approveExpensive,
+      }),
+    );
   });
 
 program

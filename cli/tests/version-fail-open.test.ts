@@ -1,0 +1,132 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { validateContract, type RubrixContract } from "../src/core/contract.ts";
+import { isV12Plus, isV13Plus } from "../src/core/version.ts";
+import { baseV12Drafted, clarity } from "./helpers.ts";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(here, "../..");
+
+function loadFixture(relPath: string): RubrixContract {
+  const txt = readFileSync(resolve(REPO_ROOT, relPath), "utf8");
+  return JSON.parse(txt) as RubrixContract;
+}
+
+function v13Passed(): RubrixContract {
+  const c = baseV12Drafted();
+  c.version = "1.3.0";
+  c.state = "Passed";
+  c.locks = { rubric: true, matrix: true, plan: true };
+  c.rubric!.clarity = clarity(0.9, 0.75);
+  c.matrix = { rows: [{ id: "r1", criterion: "c1", evidence_required: "x" }], clarity: clarity(0.9, 0.8) };
+  c.plan = { steps: [{ id: "s1", action: "do" }], clarity: clarity(0.9, 0.7) };
+  c.scores = [
+    {
+      criterion: "c1",
+      score: 0.9,
+      evaluators: [{ evaluator_id: "semantic-judge", stage: 2 }],
+      stage_history: [
+        {
+          stage: 2,
+          score: 0.9,
+          self_reported_confidence: 0.85,
+          model: "claude-sonnet-4-6",
+          model_version: "claude-sonnet-4-6-20260301",
+          prompt_version: "semantic-judge/1.0",
+        },
+      ],
+    },
+  ] as RubrixContract["scores"];
+  (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy = {
+    source: "brief",
+    locked_at: "2026-05-06T00:00:00.000Z",
+    approved_by: "rubrix",
+    derived_from_brief_hash: "a".repeat(64),
+    stage1_required: true,
+    stage3_threshold: 0.7,
+    stage3_axes: ["security"],
+    max_stage3_criteria: 5,
+    max_frontier_votes: 3,
+    estimated_cost_ceiling: 5.0,
+    frontier_models: ["claude-opus-4-7", "claude-sonnet-4-6", "claude-sonnet-4-6"],
+  };
+  return c;
+}
+
+describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
+  it("v1.0 self-eval fixture validates clean (no v1.3 fields required)", () => {
+    expect(validateContract(loadFixture("examples/self-eval/rubrix.json")).ok).toBe(true);
+  });
+
+  it("v1.0 ios-refactor fixture validates clean (no v1.3 fields required)", () => {
+    expect(validateContract(loadFixture("examples/ios-refactor/rubrix.json")).ok).toBe(true);
+  });
+
+  it("v1.2 root rubrix.json (current dogfood) validates clean (no v1.3 fields required)", () => {
+    expect(validateContract(loadFixture("rubrix.json")).ok).toBe(true);
+  });
+
+  it("v1.3.0 contract WITH evaluation_policy validates", () => {
+    expect(validateContract(v13Passed()).ok).toBe(true);
+  });
+
+  it("v1.3.0 contract WITHOUT evaluation_policy fails (fail-closed for v1.3.x)", () => {
+    const c = v13Passed();
+    delete (c as Record<string, unknown>).evaluation_policy;
+    expect(validateContract(c).ok).toBe(false);
+  });
+
+  it("v1.2 contract WITHOUT evaluation_policy still validates (fail-open for version<1.3)", () => {
+    const c = baseV12Drafted();
+    c.state = "Passed";
+    c.locks = { rubric: true, matrix: true, plan: true };
+    c.rubric!.clarity = clarity(0.9, 0.75);
+    c.matrix = { rows: [{ id: "r1", criterion: "c1", evidence_required: "x" }], clarity: clarity(0.9, 0.8) };
+    c.plan = { steps: [{ id: "s1", action: "do" }], clarity: clarity(0.9, 0.7) };
+    c.scores = [{ criterion: "c1", score: 0.9 }];
+    expect(validateContract(c).ok).toBe(true);
+  });
+});
+
+describe("isV13Plus helper", () => {
+  it("returns true for 1.3.0", () => {
+    expect(isV13Plus({ version: "1.3.0" })).toBe(true);
+  });
+
+  it("returns true for 1.5.0", () => {
+    expect(isV13Plus({ version: "1.5.0" })).toBe(true);
+  });
+
+  it("returns true for 2.0.0", () => {
+    expect(isV13Plus({ version: "2.0.0" })).toBe(true);
+  });
+
+  it("returns false for 1.2.0", () => {
+    expect(isV13Plus({ version: "1.2.0" })).toBe(false);
+  });
+
+  it("returns false for 1.2.99", () => {
+    expect(isV13Plus({ version: "1.2.99" })).toBe(false);
+  });
+
+  it("returns false for 1.1.0", () => {
+    expect(isV13Plus({ version: "1.1.0" })).toBe(false);
+  });
+
+  it("returns false for 0.1.0", () => {
+    expect(isV13Plus({ version: "0.1.0" })).toBe(false);
+  });
+
+  it("returns false for invalid version string (no throw at boundary)", () => {
+    expect(isV13Plus({ version: "not-a-semver" })).toBe(false);
+  });
+
+  it("isV12Plus contract is preserved (no regression)", () => {
+    expect(isV12Plus({ version: "1.2.0" })).toBe(true);
+    expect(isV12Plus({ version: "1.3.0" })).toBe(true);
+    expect(isV12Plus({ version: "1.1.0" })).toBe(false);
+    expect(isV12Plus({ version: "0.1.0" })).toBe(false);
+  });
+});
