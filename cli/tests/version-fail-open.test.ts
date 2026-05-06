@@ -105,8 +105,21 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
     expect(validateContract(loadFixture("rubrix.json")).ok).toBe(true);
   });
 
-  it(".rubrix/v1.3.0-pr1.json (PR #1 dogfood contract, version=1.2.0) validates clean", () => {
-    expect(validateContract(loadFixture(".rubrix/v1.3.0-pr1.json")).ok).toBe(true);
+  it("v1.2.0 PR #1-shaped contract (calibrated brief + clarity-locked rubric/matrix/plan + scores) validates without v1.3 fields", () => {
+    const c = baseV12Drafted();
+    c.state = "Passed";
+    c.locks = { rubric: true, matrix: true, plan: true };
+    c.rubric!.clarity = clarity(0.95, 0.85);
+    c.matrix = {
+      rows: [{ id: "r1", criterion: "c1", evidence_required: "vitest" }],
+      clarity: clarity(0.95, 0.9),
+    };
+    c.plan = {
+      steps: [{ id: "s1", action: "implement", covers: ["r1"] }],
+      clarity: clarity(0.9, 0.8),
+    };
+    c.scores = [{ criterion: "c1", score: 1.0, evaluator: "manual-review" }];
+    expect(validateContract(c).ok).toBe(true);
   });
 
   it("v1.3.0 contract WITH evaluation_policy validates", () => {
