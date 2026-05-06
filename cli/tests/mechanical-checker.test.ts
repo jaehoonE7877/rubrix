@@ -61,7 +61,7 @@ describe("mechanical-checker layer in cascade orchestrator", () => {
     expect(caller.score).toBe(1);
     expect(record!.triggered_stage3).toBe(false);
     expect(record!.stage_history).toHaveLength(1);
-    expect(record!.stage_history[0].stage).toBe(1);
+    expect(record!.stage_history[0]!.stage).toBe(1);
   });
 
   it("escalates to Stage 2 when Stage 1 confidence=0 (ambiguous)", () => {
