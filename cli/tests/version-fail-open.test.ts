@@ -55,17 +55,58 @@ function v13Passed(): RubrixContract {
   return c;
 }
 
+function v10MinimalDrafted(): RubrixContract {
+  return {
+    version: "1.0.0",
+    intent: { summary: "v1.0 minimal" },
+    rubric: { threshold: 0.5, criteria: [{ id: "c1", description: "d", weight: 1 }] },
+    state: "RubricDrafted",
+    locks: { rubric: false, matrix: false, plan: false },
+  };
+}
+
+function v11MinimalDrafted(): RubrixContract {
+  return {
+    version: "1.1.0",
+    intent: {
+      summary: "v1.1 minimal",
+      brief: {
+        calibrated: true,
+        project_type: "brownfield_feature",
+        situation: "internal_tool",
+        ambition: "production",
+        axis_depth: { security: "standard", data: "standard", correctness: "standard", ux: "standard", perf: "standard" },
+      },
+    },
+    rubric: { threshold: 0.5, criteria: [{ id: "c1", description: "d", weight: 1, axis: "correctness" }] },
+    state: "RubricDrafted",
+    locks: { rubric: false, matrix: false, plan: false },
+  };
+}
+
 describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
-  it("v1.0 self-eval fixture validates clean (no v1.3 fields required)", () => {
+  it("v0.1 example self-eval/rubrix.json (version=0.1.0) validates clean (no v1.3 fields required)", () => {
     expect(validateContract(loadFixture("examples/self-eval/rubrix.json")).ok).toBe(true);
   });
 
-  it("v1.0 ios-refactor fixture validates clean (no v1.3 fields required)", () => {
+  it("v0.1 example ios-refactor/rubrix.json (version=0.1.0) validates clean (no v1.3 fields required)", () => {
     expect(validateContract(loadFixture("examples/ios-refactor/rubrix.json")).ok).toBe(true);
+  });
+
+  it("v1.0.0 minimal contract validates without evaluation_policy / evaluators[] / stage_history (fail-open)", () => {
+    expect(validateContract(v10MinimalDrafted()).ok).toBe(true);
+  });
+
+  it("v1.1.0 minimal contract validates without evaluation_policy / evaluators[] / stage_history (fail-open)", () => {
+    expect(validateContract(v11MinimalDrafted()).ok).toBe(true);
   });
 
   it("v1.2 root rubrix.json (current dogfood) validates clean (no v1.3 fields required)", () => {
     expect(validateContract(loadFixture("rubrix.json")).ok).toBe(true);
+  });
+
+  it(".rubrix/v1.3.0-pr1.json (PR #1 dogfood contract, version=1.2.0) validates clean", () => {
+    expect(validateContract(loadFixture(".rubrix/v1.3.0-pr1.json")).ok).toBe(true);
   });
 
   it("v1.3.0 contract WITH evaluation_policy validates", () => {
