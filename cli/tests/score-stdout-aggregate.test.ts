@@ -145,6 +145,52 @@ describe("rubrix score stdout = aggregate only (Codex critical context-isolation
     expect(out).not.toContain("use --explain");
   });
 
+  it("score command shares budget state across criteria (cap is per-run, not per-criterion)", () => {
+    const c = smallScoringContract();
+    c.rubric!.criteria = [
+      { id: "a", description: "first", weight: 0.5, floor: 0.5, axis: "security", verify: "echo a" },
+      { id: "b", description: "second", weight: 0.5, floor: 0.5, axis: "security", verify: "echo b" },
+    ];
+    const path = tempContractFile(c);
+    const stage3Hits: string[] = [];
+    captureStdout(() =>
+      scoreCommand({
+        path,
+        cascadeOptions: {
+          mechanicalChecker: () => ({ pass: false, confidence: 0, matched_anchors: ["a"], conflict_signal: true }),
+          semanticJudge: (criterion) => ({ evaluator: "semantic-judge", criterion: criterion.id, verdict: "pass", score: 0.8, confidence: 0.8, self_reported_confidence: 0.8, rationale: "", evidence: [] }),
+          consensusPanel: (criterion) => {
+            stage3Hits.push(criterion.id);
+            return { score: 0.85, rationale_hash: "0".repeat(64), dissent_flag: false, individual_entries: [{ stage: 3, score: 0.85, self_reported_confidence: 0.85, model: "claude-opus-4-7", model_version: "v", prompt_version: "consensus-panel/1.0" }] };
+          },
+        },
+      }),
+    );
+    const policyMaxStage3 = defaultPolicy().max_stage3_criteria;
+    expect(policyMaxStage3).toBeGreaterThanOrEqual(2);
+    expect(stage3Hits).toEqual(["a", "b"]);
+
+    const c2 = smallScoringContract();
+    c2.rubric!.criteria = Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, description: `crit${i}`, weight: 1 / 6, floor: 0.5, axis: "security" as const, verify: `echo c${i}` }));
+    c2.evaluation_policy = defaultPolicy({ max_stage3_criteria: 2, stage3_axes: ["security"], stage3_threshold: 0.9 });
+    const path2 = tempContractFile(c2);
+    const stage3Hits2: string[] = [];
+    captureStdout(() =>
+      scoreCommand({
+        path: path2,
+        cascadeOptions: {
+          mechanicalChecker: () => ({ pass: false, confidence: 0, matched_anchors: ["a"], conflict_signal: true }),
+          semanticJudge: (criterion) => ({ evaluator: "semantic-judge", criterion: criterion.id, verdict: "pass", score: 0.8, confidence: 0.8, self_reported_confidence: 0.8, rationale: "", evidence: [] }),
+          consensusPanel: (criterion) => {
+            stage3Hits2.push(criterion.id);
+            return { score: 0.85, rationale_hash: "0".repeat(64), dissent_flag: false, individual_entries: [{ stage: 3, score: 0.85, self_reported_confidence: 0.85, model: "claude-opus-4-7", model_version: "v", prompt_version: "consensus-panel/1.0" }] };
+          },
+        },
+      }),
+    );
+    expect(stage3Hits2).toHaveLength(2);
+  });
+
   it("after score runs, the contract file on disk has scores[] with full stage_history populated per criterion", () => {
     const path = tempContractFile(smallScoringContract());
     captureStdout(() =>
