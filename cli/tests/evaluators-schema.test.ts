@@ -79,7 +79,7 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
 
   it("accepts v1.3 contract with full stage_history including budget reason", () => {
     const c = v13Passed();
-    (c.scores![0] as RubrixContract["scores"][number] & { stage_history: unknown[] }).stage_history = [
+    (c.scores![0] as NonNullable<RubrixContract["scores"]>[number] & { stage_history: unknown[] }).stage_history = [
       {
         stage: 2,
         score: 0.85,
@@ -96,23 +96,23 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
   it("rejects stage_history entry missing model_version (v1.4 drift input gate)", () => {
     const c = v13Passed();
     const bad = JSON.parse(JSON.stringify(c.scores![0])) as Record<string, unknown>;
-    (bad.stage_history as Array<Record<string, unknown>>)[0].model_version = undefined;
-    delete (bad.stage_history as Array<Record<string, unknown>>)[0].model_version;
-    c.scores = [bad as unknown as RubrixContract["scores"][number]];
+    ((bad.stage_history as Array<Record<string, unknown>>)[0] as Record<string, unknown>).model_version = undefined;
+    delete ((bad.stage_history as Array<Record<string, unknown>>)[0] as Record<string, unknown>).model_version;
+    c.scores = [bad as unknown as NonNullable<RubrixContract["scores"]>[number]];
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("rejects stage_history entry missing prompt_version", () => {
     const c = v13Passed();
     const bad = JSON.parse(JSON.stringify(c.scores![0])) as Record<string, unknown>;
-    delete (bad.stage_history as Array<Record<string, unknown>>)[0].prompt_version;
-    c.scores = [bad as unknown as RubrixContract["scores"][number]];
+    delete ((bad.stage_history as Array<Record<string, unknown>>)[0] as Record<string, unknown>).prompt_version;
+    c.scores = [bad as unknown as NonNullable<RubrixContract["scores"]>[number]];
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("rejects evaluators[] entry with stage outside {1,2,3}", () => {
     const c = v13Passed();
-    (c.scores![0] as RubrixContract["scores"][number] & { evaluators: Array<{ evaluator_id: string; stage: number }> }).evaluators = [
+    (c.scores![0] as unknown as Record<string, unknown>).evaluators = [
       { evaluator_id: "x", stage: 4 },
     ];
     expect(validateContract(c).ok).toBe(false);
@@ -120,7 +120,7 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
 
   it("accepts both evaluator (string) and evaluators[] on the same score item (read-compat)", () => {
     const c = v13Passed();
-    (c.scores![0] as Record<string, unknown>).evaluator = "legacy-output-judge";
+    (c.scores![0] as unknown as Record<string, unknown>).evaluator = "legacy-output-judge";
     expect(validateContract(c).ok).toBe(true);
   });
 });

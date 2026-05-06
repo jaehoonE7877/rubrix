@@ -7,7 +7,7 @@ export interface SemverParts {
 }
 
 export function parseVersion(input: string): SemverParts {
-  const m = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(input);
+  const m = /^(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?$/.exec(input);
   if (!m) {
     throw new Error(`invalid semver-like version: ${input}`);
   }

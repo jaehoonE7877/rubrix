@@ -73,8 +73,8 @@
   "properties": {
     "version": {
       "type": "string",
-      "description": "Schema version of this rubrix.json document.",
-      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+      "description": "Schema version of this rubrix.json document. Strict semver-like form: each component must be either '0' or a non-zero digit followed by digits (no leading zeros). This eliminates schema/runtime drift with isV13Plus, which numerically parses minors and ignores zero-padding — a contract written as '1.02.0' would otherwise be misclassified by the v1.3+ fail-closed gate.",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?$"
     },
     "intent": {
       "type": "object",

@@ -57,7 +57,7 @@ describe("evaluation_policy schema (v1.3 PR #1)", () => {
 
   it("rejects v1.3 contract WITHOUT evaluation_policy (fail-closed for v1.3.x)", () => {
     const c = v13PassedWithPolicy();
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
@@ -85,7 +85,7 @@ describe("evaluation_policy schema (v1.3 PR #1)", () => {
 
   it("rejects evaluation_policy.source outside enum {brief,user,cli-default}", () => {
     const c = v13PassedWithPolicy();
-    (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.source = "automation";
+    (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.source = "automation" as unknown as "brief" | "user" | "cli-default";
     expect(validateContract(c).ok).toBe(false);
   });
 

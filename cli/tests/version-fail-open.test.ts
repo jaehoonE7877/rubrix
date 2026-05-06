@@ -128,42 +128,42 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
 
   it("v1.3.0 contract WITHOUT evaluation_policy fails (fail-closed for v1.3.x)", () => {
     const c = v13Passed();
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.4.0 contract WITHOUT evaluation_policy fails (fail-closed extends to all v1.3+ minors)", () => {
     const c = v13Passed();
     c.version = "1.4.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.5.0 contract WITHOUT evaluation_policy fails", () => {
     const c = v13Passed();
     c.version = "1.5.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v2.0.0 contract WITHOUT evaluation_policy fails (major bump still requires policy)", () => {
     const c = v13Passed();
     c.version = "2.0.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.10.0 contract WITHOUT evaluation_policy fails (10 != [012] — regex excludes only v1.0/v1.1/v1.2)", () => {
     const c = v13Passed();
     c.version = "1.10.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("v1.20.0 contract WITHOUT evaluation_policy fails (20 != [012])", () => {
     const c = v13Passed();
     c.version = "1.20.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(false);
   });
 
@@ -176,7 +176,7 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
   it("v0.1.0 contract WITHOUT evaluation_policy still validates (v0.x fail-open)", () => {
     const c = v13Passed();
     c.version = "0.1.0";
-    delete (c as Record<string, unknown>).evaluation_policy;
+    delete (c as unknown as Record<string, unknown>).evaluation_policy;
     expect(validateContract(c).ok).toBe(true);
   });
 
@@ -188,6 +188,32 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
     c.matrix = { rows: [{ id: "r1", criterion: "c1", evidence_required: "x" }], clarity: clarity(0.9, 0.8) };
     c.plan = { steps: [{ id: "s1", action: "do" }], clarity: clarity(0.9, 0.7) };
     c.scores = [{ criterion: "c1", score: 0.9 }];
+    expect(validateContract(c).ok).toBe(true);
+  });
+
+  it("zero-padded minor version '1.02.0' is rejected at the version field (no schema/runtime drift)", () => {
+    const c = v13Passed();
+    c.version = "1.02.0";
+    expect(validateContract(c).ok).toBe(false);
+  });
+
+  it("zero-padded major version '01.2.0' is rejected at the version field", () => {
+    const c = v13Passed();
+    c.version = "01.2.0";
+    expect(validateContract(c).ok).toBe(false);
+  });
+
+  it("zero-padded patch version '1.2.03' is rejected at the version field", () => {
+    const c = v13Passed();
+    c.version = "1.2.03";
+    expect(validateContract(c).ok).toBe(false);
+  });
+
+  it("multi-digit minors like '1.10.0' / '1.20.0' are still accepted (only padding is rejected)", () => {
+    const c = v13Passed();
+    c.version = "1.10.0";
+    expect(validateContract(c).ok).toBe(true);
+    c.version = "1.20.0";
     expect(validateContract(c).ok).toBe(true);
   });
 });
@@ -223,6 +249,12 @@ describe("isV13Plus helper", () => {
 
   it("returns false for invalid version string (no throw at boundary)", () => {
     expect(isV13Plus({ version: "not-a-semver" })).toBe(false);
+  });
+
+  it("returns false for zero-padded forms (parseVersion now rejects them; helper catches and returns false — aligned with schema)", () => {
+    expect(isV13Plus({ version: "1.02.0" })).toBe(false);
+    expect(isV13Plus({ version: "01.2.0" })).toBe(false);
+    expect(isV13Plus({ version: "1.3.03" })).toBe(false);
   });
 
   it("isV12Plus contract is preserved (no regression)", () => {
