@@ -39,14 +39,17 @@ export function scoreCommand(opts: ScoreOptions): number {
     let skipped = 0;
     let blockers = 0;
 
+    const sharedBudget = opts.cascadeOptions?.budgetState ?? makeBudgetState();
+    const userSink = opts.cascadeOptions?.recordSink;
+
     for (const criterion of c.rubric.criteria) {
       let record: CascadeInternalRecord | undefined;
       const cascadeOpts: CascadeOptions = {
         ...(opts.cascadeOptions ?? {}),
-        budgetState: opts.cascadeOptions?.budgetState ?? makeBudgetState(),
+        budgetState: sharedBudget,
         recordSink: (r) => {
           record = r;
-          opts.cascadeOptions?.recordSink?.(r);
+          userSink?.(r);
         },
       };
 
