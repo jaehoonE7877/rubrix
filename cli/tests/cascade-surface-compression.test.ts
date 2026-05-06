@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runCascade } from "../src/core/cascade.ts";
-import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs } from "./helpers-cascade.ts";
+import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs , runCascadeForTest} from "./helpers-cascade.ts";
 
 describe("main-thread surface compression (Codex critical context-isolation)", () => {
   it("runCascade caller return value has EXACTLY {score, rationale_hash, dissent_flag} keys (Stage 1 short-circuit)", () => {
@@ -9,7 +8,7 @@ describe("main-thread surface compression (Codex critical context-isolation)", (
       { evaluator: "semantic-judge", criterion: "c", verdict: "pass", score: 1, confidence: 1, self_reported_confidence: 1, rationale: "should-not-leak", evidence: [] },
       { score: 1, rationale_hash: "0".repeat(64), dissent_flag: false, individual_entries: [] },
     );
-    const r = runCascade(makeCriterion(), defaultPolicy(), deepBriefContract(), {
+    const r = runCascadeForTest(makeCriterion(), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
@@ -23,7 +22,7 @@ describe("main-thread surface compression (Codex critical context-isolation)", (
       { evaluator: "semantic-judge", criterion: "c", verdict: "pass", score: 0.85, confidence: 0.85, self_reported_confidence: 0.85, rationale: "should-not-leak", evidence: ["ev"] },
       { score: 0.85, rationale_hash: "0".repeat(64), dissent_flag: false, individual_entries: [] },
     );
-    const r = runCascade(
+    const r = runCascadeForTest(
       makeCriterion({ axis: "data" }),
       defaultPolicy({ stage3_axes: [] }),
       deepBriefContract({ axis_depth: { security: "standard", correctness: "standard", data: "standard", ux: "standard", perf: "standard" } }),
@@ -45,7 +44,7 @@ describe("main-thread surface compression (Codex critical context-isolation)", (
         ],
       },
     );
-    const r = runCascade(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
+    const r = runCascadeForTest(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
@@ -68,7 +67,7 @@ describe("main-thread surface compression (Codex critical context-isolation)", (
         ],
       },
     );
-    const r = runCascade(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
+    const r = runCascadeForTest(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
@@ -99,7 +98,7 @@ describe("main-thread surface compression (Codex critical context-isolation)", (
         ],
       },
     );
-    const r = runCascade(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
+    const r = runCascadeForTest(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,

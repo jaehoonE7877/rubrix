@@ -47,19 +47,21 @@ describe("mechanical-checker layer in cascade orchestrator", () => {
       },
     );
 
-    const result = runCascade(makeCriterion(), defaultPolicy(), deepBriefContract(), {
+    let record: import("../src/core/cascade.ts").CascadeInternalRecord | undefined;
+    const caller = runCascade(makeCriterion(), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
+      recordSink: (r) => { record = r; },
     });
 
     expect(stubs.mechCalls).toBe(1);
     expect(stubs.semCalls).toBe(0);
     expect(stubs.conCalls).toBe(0);
-    expect(result.caller.score).toBe(1);
-    expect(result.record.triggered_stage3).toBe(false);
-    expect(result.record.stage_history).toHaveLength(1);
-    expect(result.record.stage_history[0].stage).toBe(1);
+    expect(caller.score).toBe(1);
+    expect(record!.triggered_stage3).toBe(false);
+    expect(record!.stage_history).toHaveLength(1);
+    expect(record!.stage_history[0].stage).toBe(1);
   });
 
   it("escalates to Stage 2 when Stage 1 confidence=0 (ambiguous)", () => {
@@ -106,17 +108,23 @@ describe("mechanical-checker layer in cascade orchestrator", () => {
       },
     );
 
-    const result = runCascade(
+    let record: import("../src/core/cascade.ts").CascadeInternalRecord | undefined;
+    runCascade(
       makeCriterion({ verify: undefined }),
       defaultPolicy(),
       deepBriefContract({
         axis_depth: { security: "standard", correctness: "standard", data: "standard", ux: "standard", perf: "standard" },
       }),
-      { mechanicalChecker: stubs.mechanicalChecker, semanticJudge: stubs.semanticJudge, consensusPanel: stubs.consensusPanel },
+      {
+        mechanicalChecker: stubs.mechanicalChecker,
+        semanticJudge: stubs.semanticJudge,
+        consensusPanel: stubs.consensusPanel,
+        recordSink: (r) => { record = r; },
+      },
     );
 
     expect(stubs.mechCalls).toBe(1);
     expect(stubs.semCalls).toBe(1);
-    expect(result.record.stage_history.find((e) => e.stage === 1)?.self_reported_confidence).toBe(0);
+    expect(record!.stage_history.find((e) => e.stage === 1)?.self_reported_confidence).toBe(0);
   });
 });

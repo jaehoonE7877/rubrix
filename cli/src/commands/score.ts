@@ -2,6 +2,7 @@ import { ContractError, loadContract, saveContract, type CascadeStageEntry, type
 import {
   makeBudgetState,
   runCascade,
+  type CascadeInternalRecord,
   type CascadeOptions,
   type ConsensusInternal,
   type ConsensusPanelFn,
@@ -33,18 +34,23 @@ export function scoreCommand(opts: ScoreOptions): number {
       return 3;
     }
 
-    const cascadeOpts: CascadeOptions = {
-      ...(opts.cascadeOptions ?? {}),
-      budgetState: opts.cascadeOptions?.budgetState ?? makeBudgetState(),
-    };
-
     const newScores: NonNullable<RubrixContract["scores"]> = [];
     let passed = 0;
     let skipped = 0;
     let blockers = 0;
 
     for (const criterion of c.rubric.criteria) {
-      const result = runCascade(
+      let record: CascadeInternalRecord | undefined;
+      const cascadeOpts: CascadeOptions = {
+        ...(opts.cascadeOptions ?? {}),
+        budgetState: opts.cascadeOptions?.budgetState ?? makeBudgetState(),
+        recordSink: (r) => {
+          record = r;
+          opts.cascadeOptions?.recordSink?.(r);
+        },
+      };
+
+      const caller = runCascade(
         {
           id: criterion.id,
           description: criterion.description,
@@ -57,17 +63,20 @@ export function scoreCommand(opts: ScoreOptions): number {
         c,
         cascadeOpts,
       );
-      const evaluators = inferEvaluators(result.record.stage_history);
+      if (!record) {
+        throw new Error(`internal: cascade did not emit a record for criterion ${criterion.id}`);
+      }
+      const evaluators = inferEvaluators(record.stage_history);
       newScores.push({
         criterion: criterion.id,
-        score: result.caller.score,
+        score: caller.score,
         evaluators,
-        stage_history: result.record.stage_history,
+        stage_history: record.stage_history,
         confidence: undefined,
       });
-      if (result.record.skipped_stage3_due_to_budget) skipped += 1;
-      if (result.caller.score < (criterion.floor ?? 0)) blockers += 1;
-      else if (!result.record.skipped_stage3_due_to_budget) passed += 1;
+      if (record.skipped_stage3_due_to_budget) skipped += 1;
+      if (caller.score < (criterion.floor ?? 0)) blockers += 1;
+      else if (!record.skipped_stage3_due_to_budget) passed += 1;
     }
 
     c.scores = newScores;
@@ -78,7 +87,7 @@ export function scoreCommand(opts: ScoreOptions): number {
 
     process.stdout.write(`passed=${passed} skipped=${skipped} blockers=${blockers}\n`);
     if (skipped > 0 || blockers > 0) {
-      process.stdout.write(`use --explain <id> for details\n`);
+      process.stderr.write(`use --explain <id> for details\n`);
     }
     return 0;
   } catch (e) {

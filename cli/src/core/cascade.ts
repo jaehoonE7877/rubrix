@@ -66,6 +66,7 @@ export interface CascadeOptions {
   semanticJudge?: SemanticJudgeFn;
   consensusPanel?: ConsensusPanelFn;
   budgetState?: BudgetState;
+  recordSink?: (record: CascadeInternalRecord) => void;
 }
 
 export interface BudgetState {
@@ -170,7 +171,7 @@ const DEFAULT_SEMANTIC: SemanticJudgeFn = (criterion) => ({
   evidence: [],
 });
 
-const DEFAULT_CONSENSUS: ConsensusPanelFn = (criterion, _contract, stage2) => {
+const DEFAULT_CONSENSUS: ConsensusPanelFn = (criterion, _contract, stage2, policy) => {
   const median = stage2.score;
   const hash = rationaleHashFor(
     criterion,
@@ -178,20 +179,22 @@ const DEFAULT_CONSENSUS: ConsensusPanelFn = (criterion, _contract, stage2) => {
     stage2,
     { score: median, rationale_hash: "deferred", dissent_flag: false },
   );
+  const ensemble = policy.frontier_models.length > 0
+    ? policy.frontier_models
+    : ["claude-opus-4-7", "claude-sonnet-4-6", "claude-sonnet-4-6"];
+  const individual_entries = ensemble.map((model) => ({
+    stage: 3 as const,
+    score: median,
+    self_reported_confidence: 0.5,
+    model,
+    model_version: `${model}-default-stub`,
+    prompt_version: PROMPT_CONSENSUS,
+  }));
   return {
     score: median,
     rationale_hash: hash,
     dissent_flag: false,
-    individual_entries: [
-      {
-        stage: 3,
-        score: median,
-        self_reported_confidence: 0.5,
-        model: "claude-opus-4-7",
-        model_version: "claude-opus-4-7-default-stub",
-        prompt_version: PROMPT_CONSENSUS,
-      },
-    ],
+    individual_entries,
   };
 };
 
@@ -200,11 +203,12 @@ export function runCascade(
   policy: EvaluationPolicy,
   contract: RubrixContract,
   options: CascadeOptions = {},
-): { caller: CascadeReturn; record: CascadeInternalRecord } {
+): CascadeReturn {
   const mech = options.mechanicalChecker ?? DEFAULT_MECHANICAL;
   const sem = options.semanticJudge ?? DEFAULT_SEMANTIC;
   const con = options.consensusPanel ?? DEFAULT_CONSENSUS;
   const budget = options.budgetState ?? makeBudgetState();
+  const sink = options.recordSink;
 
   const stage_history: CascadeStageEntry[] = [];
 
@@ -233,10 +237,8 @@ export function runCascade(
       evidence: [],
     });
     const caller: CascadeReturn = { score, rationale_hash: hash, dissent_flag: false };
-    return {
-      caller,
-      record: { ...caller, stage_history, triggered_stage3: false, skipped_stage3_due_to_budget: false },
-    };
+    sink?.({ ...caller, stage_history, triggered_stage3: false, skipped_stage3_due_to_budget: false });
+    return caller;
   }
 
   const stage2Start = Date.now();
@@ -259,10 +261,8 @@ export function runCascade(
       rationale_hash: hash,
       dissent_flag: false,
     };
-    return {
-      caller,
-      record: { ...caller, stage_history, triggered_stage3: false, skipped_stage3_due_to_budget: false },
-    };
+    sink?.({ ...caller, stage_history, triggered_stage3: false, skipped_stage3_due_to_budget: false });
+    return caller;
   }
 
   if (budget.stage3_used >= policy.max_stage3_criteria) {
@@ -281,10 +281,8 @@ export function runCascade(
       rationale_hash: hash,
       dissent_flag: false,
     };
-    return {
-      caller,
-      record: { ...caller, stage_history, triggered_stage3: false, skipped_stage3_due_to_budget: true },
-    };
+    sink?.({ ...caller, stage_history, triggered_stage3: false, skipped_stage3_due_to_budget: true });
+    return caller;
   }
 
   budget.stage3_used += 1;
@@ -298,8 +296,6 @@ export function runCascade(
     rationale_hash: stage3.rationale_hash,
     dissent_flag: stage3.dissent_flag,
   };
-  return {
-    caller,
-    record: { ...caller, stage_history, triggered_stage3: true, skipped_stage3_due_to_budget: false },
-  };
+  sink?.({ ...caller, stage_history, triggered_stage3: true, skipped_stage3_due_to_budget: false });
+  return caller;
 }

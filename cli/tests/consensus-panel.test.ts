@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { runCascade } from "../src/core/cascade.ts";
-import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs } from "./helpers-cascade.ts";
+import { defaultPolicy, deepBriefContract, makeCriterion, makeRecordingStubs , runCascadeForTest} from "./helpers-cascade.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CP_PATH = resolve(here, "../../agents/consensus-panel.md");
@@ -62,7 +61,7 @@ describe("consensus-panel layer in cascade orchestrator (Stage 3 surface compres
       },
     );
 
-    const result = runCascade(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
+    const result = runCascadeForTest(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
@@ -87,7 +86,7 @@ describe("consensus-panel layer in cascade orchestrator (Stage 3 surface compres
       { score: 0.7, rationale_hash: "f".repeat(64), dissent_flag: true, individual_entries: individual },
     );
 
-    const result = runCascade(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
+    const result = runCascadeForTest(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
@@ -108,7 +107,7 @@ describe("consensus-panel layer in cascade orchestrator (Stage 3 surface compres
       { score: 0.65, rationale_hash: "a".repeat(64), dissent_flag: true, individual_entries: [{ stage: 3, score: 0.65, self_reported_confidence: 0.5, model: "claude-opus-4-7", model_version: "v", prompt_version: "consensus-panel/1.0" }] },
     );
 
-    const result = runCascade(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
+    const result = runCascadeForTest(makeCriterion({ axis: "security" }), defaultPolicy(), deepBriefContract(), {
       mechanicalChecker: stubs.mechanicalChecker,
       semanticJudge: stubs.semanticJudge,
       consensusPanel: stubs.consensusPanel,
