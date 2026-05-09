@@ -349,13 +349,16 @@ const CASCADE_ORIGIN_MARKER = "rubrix-cascade-orchestrator";
 const STAGE12_EVALUATORS = new Set(["output-judge", "semantic-judge"]);
 const STAGE3_EVALUATORS = new Set(["consensus-panel"]);
 
+const SUBAGENT_DISPATCH_TOOLS = new Set(["Task", "Agent"]);
+
 function evalCascadeRedirect(input: HookInput): HookDecision | null {
   const tool = typeof input.tool_name === "string" ? input.tool_name : "";
-  if (tool !== "Task") return null;
+  if (!SUBAGENT_DISPATCH_TOOLS.has(tool)) return null;
   const ti = (input.tool_input ?? {}) as Record<string, unknown>;
   const subagentType = typeof ti.subagent_type === "string" ? ti.subagent_type : "";
   const origin = typeof ti._cascade_origin === "string" ? ti._cascade_origin : "";
-  if (STAGE3_EVALUATORS.has(subagentType) && isBudgetOverrunMarkerSet()) {
+  const cwdArg = typeof input.cwd === "string" ? input.cwd : undefined;
+  if (STAGE3_EVALUATORS.has(subagentType) && isBudgetOverrunMarkerSet(cwdArg)) {
     return {
       decision: "block",
       reason:

@@ -96,31 +96,31 @@ function isOverBudget(budget: BudgetState, policy: EvaluationPolicy): boolean {
 const BUDGET_OVERRUN_ENV = "RUBRIX_BUDGET_OVERRUN";
 const BUDGET_OVERRUN_RELATIVE_PATH = ".rubrix/budget-overrun.flag";
 
-function budgetOverrunMarkerPath(): string {
-  const root = process.env.RUBRIX_RUNTIME_ROOT ?? process.cwd();
+function budgetOverrunMarkerPath(rootOverride?: string): string {
+  const root = rootOverride ?? process.env.RUBRIX_RUNTIME_ROOT ?? process.cwd();
   return join(root, BUDGET_OVERRUN_RELATIVE_PATH);
 }
 
-export function emitBudgetOverrunMarker(): void {
+export function emitBudgetOverrunMarker(rootOverride?: string): void {
   process.env[BUDGET_OVERRUN_ENV] = "1";
-  const markerPath = budgetOverrunMarkerPath();
+  const markerPath = budgetOverrunMarkerPath(rootOverride);
   try {
     mkdirSync(dirname(markerPath), { recursive: true });
     writeFileSync(markerPath, String(Date.now()));
   } catch {}
 }
 
-export function clearBudgetOverrunMarker(): void {
+export function clearBudgetOverrunMarker(rootOverride?: string): void {
   delete process.env[BUDGET_OVERRUN_ENV];
-  const markerPath = budgetOverrunMarkerPath();
+  const markerPath = budgetOverrunMarkerPath(rootOverride);
   try {
     if (existsSync(markerPath)) unlinkSync(markerPath);
   } catch {}
 }
 
-export function isBudgetOverrunMarkerSet(): boolean {
+export function isBudgetOverrunMarkerSet(rootOverride?: string): boolean {
   if (process.env[BUDGET_OVERRUN_ENV] === "1") return true;
-  return existsSync(budgetOverrunMarkerPath());
+  return existsSync(budgetOverrunMarkerPath(rootOverride));
 }
 
 function recordBudgetOverrun(budget: BudgetState): void {
