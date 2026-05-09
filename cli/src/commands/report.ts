@@ -7,9 +7,10 @@ import { isV12Plus } from "../core/version.ts";
 export interface ReportOptions {
   path: string;
   out?: string;
+  explain?: string;
 }
 
-export function buildReport(path: string): string {
+export function buildReport(path: string, opts: { explain?: string } = {}): string {
   const c = loadContract(path);
   const lines: string[] = [];
   lines.push(`# Rubrix Report`);
@@ -112,7 +113,33 @@ export function buildReport(path: string): string {
       lines.push("");
     }
   }
+  if (opts.explain) {
+    appendExplainSection(lines, c, opts.explain);
+  }
   return lines.join("\n");
+}
+
+function appendExplainSection(lines: string[], c: RubrixContract, criterionId: string): void {
+  lines.push(`## explain: ${criterionId}`);
+  lines.push("");
+  const score = c.scores?.find((s) => s.criterion === criterionId);
+  if (!score) {
+    lines.push(`No score entry for criterion \`${criterionId}\`.`);
+    lines.push("");
+    return;
+  }
+  const history = (score as { stage_history?: Array<{ stage: number; score: number; self_reported_confidence: number; model: string; model_version: string; prompt_version: string; latency_ms?: number; reason?: string }> }).stage_history;
+  if (!history || history.length === 0) {
+    lines.push(`No stage_history recorded for criterion \`${criterionId}\`.`);
+    lines.push("");
+    return;
+  }
+  lines.push("| stage | score | self_reported_confidence | model | model_version | prompt_version | latency_ms | reason |");
+  lines.push("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const h of history) {
+    lines.push(`| ${h.stage} | ${h.score} | ${h.self_reported_confidence} | ${h.model} | ${h.model_version} | ${h.prompt_version} | ${h.latency_ms ?? "-"} | ${h.reason ?? "-"} |`);
+  }
+  lines.push("");
 }
 
 interface ForcedLockRow {
@@ -151,14 +178,14 @@ function collectConsensusByCriterion(c: RubrixContract): Map<string, string> {
   for (const s of c.scores) {
     const history = (s as { stage_history?: Array<{ stage: number; reason?: string }> }).stage_history;
     if (!history || history.length === 0) continue;
-    const stage3 = history.find((h) => h.stage === 3);
-    if (stage3) {
-      out.set(s.criterion, "stage3");
-      continue;
-    }
     const skipped = history.find((h) => h.reason === "budget");
     if (skipped) {
       out.set(s.criterion, "skipped_due_to_budget");
+      continue;
+    }
+    const last = history[history.length - 1];
+    if (last) {
+      out.set(s.criterion, `stage${last.stage}`);
     }
   }
   return out;
@@ -172,7 +199,7 @@ function isV11Contract(c: RubrixContract): boolean {
 
 export function reportCommand(opts: ReportOptions): number {
   try {
-    const md = buildReport(opts.path);
+    const md = buildReport(opts.path, { explain: opts.explain });
     if (opts.out) {
       writeFileSync(opts.out, md, "utf8");
     } else {

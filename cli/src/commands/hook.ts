@@ -120,6 +120,15 @@ export function emitStop(decision: HookDecision): number {
   return 0;
 }
 
+export function emitSubagentStop(decision: HookDecision): number {
+  if (decision.decision === "block") {
+    const reason = decision.reason ?? "rubrix SubagentStop hook blocked subagent stop";
+    process.stderr.write(reason + "\n");
+    return 2;
+  }
+  return emitContextOnly(decision);
+}
+
 export function emitUserPromptExpansion(decision: HookDecision): number {
   if (decision.decision === "block") {
     const reason = decision.reason ?? "rubrix UserPromptExpansion hook blocked prompt";
@@ -140,10 +149,11 @@ function emitForEvent(event: HookEvent, decision: HookDecision): number {
       return emitStop(decision);
     case "UserPromptExpansion":
       return emitUserPromptExpansion(decision);
+    case "SubagentStop":
+      return emitSubagentStop(decision);
     case "SessionStart":
     case "PostToolUse":
     case "PostToolBatch":
-    case "SubagentStop":
       return emitContextOnly(decision);
   }
 }

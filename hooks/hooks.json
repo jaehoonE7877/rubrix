@@ -64,6 +64,24 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/subagent_stop.sh"
           }
         ]
+      },
+      {
+        "matcher": "semantic-judge",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/subagent_stop.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "consensus-panel",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/subagent_stop.sh"
+          }
+        ]
       }
     ],
     "Stop": [
