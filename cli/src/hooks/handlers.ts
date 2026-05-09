@@ -531,14 +531,34 @@ function readToolResponse(input: HookInput): Record<string, unknown> | null {
   return tr as Record<string, unknown>;
 }
 
+function parseAssistantJsonPayload(input: HookInput): Record<string, unknown> | null {
+  const rec = input as Record<string, unknown>;
+  const msg = rec.last_assistant_message;
+  if (typeof msg === "string") {
+    const trimmed = msg.trim();
+    const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    const fenced = fenceMatch?.[1]?.trim();
+    const candidates = fenced ? [fenced, trimmed] : [trimmed];
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {}
+    }
+  }
+  return readToolResponse(input);
+}
+
 export function handleSubagentStop(input: HookInput): HookDecision {
   const subagentType = readSubagentType(input);
   if (subagentType === "semantic-judge") {
-    const tr = readToolResponse(input);
+    const tr = parseAssistantJsonPayload(input);
     if (tr === null) {
       return {
         decision: "block",
-        reason: "Stage 2 output schema violation: tool_response missing; re-run semantic-judge with the field populated",
+        reason: "Stage 2 output schema violation: last_assistant_message must contain a JSON object per agents/semantic-judge.md; re-run with JSON-only output",
       };
     }
     const conf = tr.self_reported_confidence;
@@ -551,11 +571,11 @@ export function handleSubagentStop(input: HookInput): HookDecision {
     return {};
   }
   if (subagentType === "consensus-panel") {
-    const tr = readToolResponse(input);
+    const tr = parseAssistantJsonPayload(input);
     if (tr === null) {
       return {
         decision: "block",
-        reason: "Stage 3 output schema violation: tool_response missing; re-run consensus-panel with {score, rationale_hash, dissent_flag}",
+        reason: "Stage 3 output schema violation: last_assistant_message must contain a JSON object with {score, rationale_hash, dissent_flag}; re-run consensus-panel with JSON-only output",
       };
     }
     const present = new Set(Object.keys(tr));
