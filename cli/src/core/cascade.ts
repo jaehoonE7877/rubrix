@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type {
   CascadeStageEntry,
   EvaluationPolicy,
@@ -91,12 +93,34 @@ function isOverBudget(budget: BudgetState, policy: EvaluationPolicy): boolean {
   return false;
 }
 
+const BUDGET_OVERRUN_ENV = "RUBRIX_BUDGET_OVERRUN";
+const BUDGET_OVERRUN_RELATIVE_PATH = ".rubrix/budget-overrun.flag";
+
+function budgetOverrunMarkerPath(): string {
+  const root = process.env.RUBRIX_RUNTIME_ROOT ?? process.cwd();
+  return join(root, BUDGET_OVERRUN_RELATIVE_PATH);
+}
+
 export function emitBudgetOverrunMarker(): void {
-  process.env.RUBRIX_BUDGET_OVERRUN = "1";
+  process.env[BUDGET_OVERRUN_ENV] = "1";
+  const markerPath = budgetOverrunMarkerPath();
+  try {
+    mkdirSync(dirname(markerPath), { recursive: true });
+    writeFileSync(markerPath, String(Date.now()));
+  } catch {}
 }
 
 export function clearBudgetOverrunMarker(): void {
-  delete process.env.RUBRIX_BUDGET_OVERRUN;
+  delete process.env[BUDGET_OVERRUN_ENV];
+  const markerPath = budgetOverrunMarkerPath();
+  try {
+    if (existsSync(markerPath)) unlinkSync(markerPath);
+  } catch {}
+}
+
+export function isBudgetOverrunMarkerSet(): boolean {
+  if (process.env[BUDGET_OVERRUN_ENV] === "1") return true;
+  return existsSync(budgetOverrunMarkerPath());
 }
 
 function recordBudgetOverrun(budget: BudgetState): void {

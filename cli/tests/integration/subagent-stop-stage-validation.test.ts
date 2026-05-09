@@ -60,4 +60,29 @@ describe("SubagentStop stage-aware validation (RUB-29 PR #3)", () => {
     });
     expect(r.decision).not.toBe("block");
   });
+
+  it("(P1-A) Claude Code SubagentStop payload routes via agent_type → semantic-judge validation triggers", () => {
+    const r = handleSubagentStop({
+      agent_type: "semantic-judge",
+      tool_response: { score: 0.5, rationale: "ok" },
+    } as Parameters<typeof handleSubagentStop>[0]);
+    expect(r.decision).toBe("block");
+    expect(r.reason).toMatch(/Stage 2 output schema violation/);
+    expect(r.reason).toMatch(/self_reported_confidence/);
+  });
+
+  it("(P1-A) agent_type-routed consensus-panel still enforces strict 3-key contract", () => {
+    const r = handleSubagentStop({
+      agent_type: "consensus-panel",
+      tool_response: {
+        score: 0.8,
+        rationale_hash: "abc",
+        dissent_flag: false,
+        leaked_field: "x",
+      },
+    } as Parameters<typeof handleSubagentStop>[0]);
+    expect(r.decision).toBe("block");
+    expect(r.reason).toMatch(/unexpected key/);
+    expect(r.reason).toMatch(/leaked_field/);
+  });
 });

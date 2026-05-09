@@ -5,6 +5,7 @@ import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
 import { firstClarityViolation, recoveryCliPrefixForEnv } from "../core/clarity-gate.ts";
 import { isV12Plus } from "../core/version.ts";
+import { isBudgetOverrunMarkerSet } from "../core/cascade.ts";
 
 export type HookEvent =
   | "SessionStart"
@@ -354,7 +355,7 @@ function evalCascadeRedirect(input: HookInput): HookDecision | null {
   const ti = (input.tool_input ?? {}) as Record<string, unknown>;
   const subagentType = typeof ti.subagent_type === "string" ? ti.subagent_type : "";
   const origin = typeof ti._cascade_origin === "string" ? ti._cascade_origin : "";
-  if (STAGE3_EVALUATORS.has(subagentType) && process.env.RUBRIX_BUDGET_OVERRUN === "1") {
+  if (STAGE3_EVALUATORS.has(subagentType) && isBudgetOverrunMarkerSet()) {
     return {
       decision: "block",
       reason:
@@ -511,8 +512,11 @@ export function handlePostToolBatch(_input: HookInput): HookDecision {
 const STAGE3_REQUIRED_KEYS = ["score", "rationale_hash", "dissent_flag"] as const;
 
 function readSubagentType(input: HookInput): string {
-  const raw = (input as Record<string, unknown>).subagent_type;
+  const rec = input as Record<string, unknown>;
+  const raw = rec.subagent_type;
   if (typeof raw === "string") return raw;
+  const agentType = rec.agent_type;
+  if (typeof agentType === "string") return agentType;
   if (typeof input.subagent_name === "string") return input.subagent_name;
   return "";
 }
