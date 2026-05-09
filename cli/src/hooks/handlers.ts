@@ -5,6 +5,7 @@ import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
 import { firstClarityViolation, recoveryCliPrefixForEnv } from "../core/clarity-gate.ts";
 import { isV12Plus } from "../core/version.ts";
+import { isBudgetOverrunMarkerSet } from "../core/cascade.ts";
 
 export type HookEvent =
   | "SessionStart"
@@ -348,13 +349,16 @@ const CASCADE_ORIGIN_MARKER = "rubrix-cascade-orchestrator";
 const STAGE12_EVALUATORS = new Set(["output-judge", "semantic-judge"]);
 const STAGE3_EVALUATORS = new Set(["consensus-panel"]);
 
+const SUBAGENT_DISPATCH_TOOLS = new Set(["Task", "Agent"]);
+
 function evalCascadeRedirect(input: HookInput): HookDecision | null {
   const tool = typeof input.tool_name === "string" ? input.tool_name : "";
-  if (tool !== "Task") return null;
+  if (!SUBAGENT_DISPATCH_TOOLS.has(tool)) return null;
   const ti = (input.tool_input ?? {}) as Record<string, unknown>;
   const subagentType = typeof ti.subagent_type === "string" ? ti.subagent_type : "";
   const origin = typeof ti._cascade_origin === "string" ? ti._cascade_origin : "";
-  if (STAGE3_EVALUATORS.has(subagentType) && process.env.RUBRIX_BUDGET_OVERRUN === "1") {
+  const cwdArg = typeof input.cwd === "string" ? input.cwd : undefined;
+  if (STAGE3_EVALUATORS.has(subagentType) && isBudgetOverrunMarkerSet(cwdArg)) {
     return {
       decision: "block",
       reason:
@@ -511,8 +515,11 @@ export function handlePostToolBatch(_input: HookInput): HookDecision {
 const STAGE3_REQUIRED_KEYS = ["score", "rationale_hash", "dissent_flag"] as const;
 
 function readSubagentType(input: HookInput): string {
-  const raw = (input as Record<string, unknown>).subagent_type;
+  const rec = input as Record<string, unknown>;
+  const raw = rec.subagent_type;
   if (typeof raw === "string") return raw;
+  const agentType = rec.agent_type;
+  if (typeof agentType === "string") return agentType;
   if (typeof input.subagent_name === "string") return input.subagent_name;
   return "";
 }
@@ -524,14 +531,34 @@ function readToolResponse(input: HookInput): Record<string, unknown> | null {
   return tr as Record<string, unknown>;
 }
 
+function parseAssistantJsonPayload(input: HookInput): Record<string, unknown> | null {
+  const rec = input as Record<string, unknown>;
+  const msg = rec.last_assistant_message;
+  if (typeof msg === "string") {
+    const trimmed = msg.trim();
+    const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    const fenced = fenceMatch?.[1]?.trim();
+    const candidates = fenced ? [fenced, trimmed] : [trimmed];
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {}
+    }
+  }
+  return readToolResponse(input);
+}
+
 export function handleSubagentStop(input: HookInput): HookDecision {
   const subagentType = readSubagentType(input);
   if (subagentType === "semantic-judge") {
-    const tr = readToolResponse(input);
+    const tr = parseAssistantJsonPayload(input);
     if (tr === null) {
       return {
         decision: "block",
-        reason: "Stage 2 output schema violation: tool_response missing; re-run semantic-judge with the field populated",
+        reason: "Stage 2 output schema violation: last_assistant_message must contain a JSON object per agents/semantic-judge.md; re-run with JSON-only output",
       };
     }
     const conf = tr.self_reported_confidence;
@@ -544,11 +571,11 @@ export function handleSubagentStop(input: HookInput): HookDecision {
     return {};
   }
   if (subagentType === "consensus-panel") {
-    const tr = readToolResponse(input);
+    const tr = parseAssistantJsonPayload(input);
     if (tr === null) {
       return {
         decision: "block",
-        reason: "Stage 3 output schema violation: tool_response missing; re-run consensus-panel with {score, rationale_hash, dissent_flag}",
+        reason: "Stage 3 output schema violation: last_assistant_message must contain a JSON object with {score, rationale_hash, dissent_flag}; re-run consensus-panel with JSON-only output",
       };
     }
     const present = new Set(Object.keys(tr));

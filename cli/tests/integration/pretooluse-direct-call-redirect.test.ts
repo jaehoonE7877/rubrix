@@ -50,4 +50,13 @@ describe("PreToolUse invisible cascade redirect (RUB-29 PR #3)", () => {
     expect(r.reason ?? "").not.toMatch(/semantic-judge/);
     expect(r.additionalContext).toBeUndefined();
   });
+
+  it("(P1-2) tool_name='Agent' (Claude Code primary subagent dispatch) → redirect fires", () => {
+    const r = handlePreToolUse({
+      tool_name: "Agent",
+      tool_input: { subagent_type: "semantic-judge", prompt: "score X" },
+    });
+    expect(r.decision).toBe("block");
+    expect(r.reason).toMatch(/redirect-to-cascade/);
+  });
 });
