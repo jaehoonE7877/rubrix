@@ -7,7 +7,7 @@ export interface SemverParts {
 }
 
 export function parseVersion(input: string): SemverParts {
-  const m = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(input);
+  const m = /^(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?$/.exec(input);
   if (!m) {
     throw new Error(`invalid semver-like version: ${input}`);
   }
@@ -31,10 +31,19 @@ export function isAtLeast(version: string, target: string): boolean {
 }
 
 const V1_2 = "1.2.0";
+const V1_3 = "1.3.0";
 
 export function isV12Plus(c: Pick<RubrixContract, "version">): boolean {
   try {
     return isAtLeast(c.version, V1_2);
+  } catch {
+    return false;
+  }
+}
+
+export function isV13Plus(c: Pick<RubrixContract, "version">): boolean {
+  try {
+    return isAtLeast(c.version, V1_3);
   } catch {
     return false;
   }

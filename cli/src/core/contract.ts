@@ -53,6 +53,36 @@ export interface IntentBrief {
   axis_depth?: Partial<Record<Axis, AxisDepth>>;
 }
 
+export interface CascadeEvaluator {
+  evaluator_id: string;
+  stage: 1 | 2 | 3;
+}
+
+export interface CascadeStageEntry {
+  stage: 1 | 2 | 3;
+  score: number;
+  self_reported_confidence: number;
+  model: string;
+  model_version: string;
+  prompt_version: string;
+  latency_ms?: number;
+  reason?: string;
+}
+
+export interface EvaluationPolicy {
+  source: "brief" | "user" | "cli-default";
+  locked_at: string;
+  approved_by: string;
+  derived_from_brief_hash: string;
+  stage1_required: boolean;
+  stage3_threshold: number;
+  stage3_axes: string[];
+  max_stage3_criteria: number;
+  max_frontier_votes: number;
+  estimated_cost_ceiling: number;
+  frontier_models: string[];
+}
+
 export interface RubrixContract {
   version: string;
   intent: { summary: string; details?: string; owner?: string; brief?: IntentBrief };
@@ -65,8 +95,17 @@ export interface RubrixContract {
   plan?: { steps: Array<{ id: string; action: string; produces?: string; covers?: string[] }>; clarity?: Clarity };
   state: State;
   locks: Locks;
-  scores?: Array<{ criterion: string; score: number; evaluator?: string; confidence?: number; notes?: string }>;
+  scores?: Array<{
+    criterion: string;
+    score: number;
+    evaluator?: string;
+    confidence?: number;
+    notes?: string;
+    evaluators?: CascadeEvaluator[];
+    stage_history?: CascadeStageEntry[];
+  }>;
   evidence?: Array<{ id: string; kind: string; ref?: string; summary?: string; covers?: string[] }>;
+  evaluation_policy?: EvaluationPolicy;
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
