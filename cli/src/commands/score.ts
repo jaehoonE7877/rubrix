@@ -1,5 +1,6 @@
 import { ContractError, loadContract, saveContract, type CascadeStageEntry, type EvaluationPolicy, type RubrixContract } from "../core/contract.ts";
 import {
+  clearBudgetOverrunMarker,
   makeBudgetState,
   runCascade,
   type CascadeInternalRecord,
@@ -21,6 +22,9 @@ export interface ScoreOptions {
 
 export function scoreCommand(opts: ScoreOptions): number {
   try {
+    if (opts.approveExpensive) {
+      clearBudgetOverrunMarker();
+    }
     const c = loadContract(opts.path);
     if (!c.rubric) {
       process.stderr.write(`rubrix score: rubric is missing on ${opts.path}; cannot score\n`);

@@ -350,6 +350,14 @@
         {
           "evaluator_id": "mechanical-checker",
           "stage": 1
+        },
+        {
+          "evaluator_id": "semantic-judge",
+          "stage": 2
+        },
+        {
+          "evaluator_id": "consensus-panel",
+          "stage": 3
         }
       ],
       "stage_history": [
@@ -360,9 +368,45 @@
           "model": "deterministic",
           "model_version": "mechanical-checker/1.0",
           "prompt_version": "mechanical-checker/1.0"
+        },
+        {
+          "stage": 2,
+          "score": 0.9,
+          "self_reported_confidence": 0.85,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "semantic-judge/1.0",
+          "latency_ms": 850
+        },
+        {
+          "stage": 3,
+          "score": 0.95,
+          "self_reported_confidence": 0.92,
+          "model": "claude-opus-4-7",
+          "model_version": "claude-opus-4-7@2026-04-01",
+          "prompt_version": "consensus-panel/1.0",
+          "latency_ms": 1200
+        },
+        {
+          "stage": 3,
+          "score": 0.93,
+          "self_reported_confidence": 0.88,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "consensus-panel/1.0",
+          "latency_ms": 950
+        },
+        {
+          "stage": 3,
+          "score": 0.94,
+          "self_reported_confidence": 0.9,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "consensus-panel/1.0",
+          "latency_ms": 980
         }
       ],
-      "notes": "5 fixtures pass in cli/tests/integration/pretooluse-direct-call-redirect.test.ts: direct semantic-judge → deny redirect; cascade-internal call → allow; output-judge alias → deny redirect; non-Task tool → no redirect reason; redirect text never carries 'output-judge' / 'semantic-judge' nor surfaces in additionalContext."
+      "notes": "5 fixtures pass in cli/tests/integration/pretooluse-direct-call-redirect.test.ts: direct semantic-judge → deny redirect; cascade-internal call → allow; output-judge alias → deny redirect; non-Task tool → no redirect reason; redirect text never carries output-judge / semantic-judge nor surfaces in additionalContext. axis=security depth=deep triggered Stage 3 ensemble (opus×1 + sonnet×2)."
     },
     {
       "criterion": "subagent_stop_stage_validation",
@@ -373,6 +417,10 @@
         {
           "evaluator_id": "mechanical-checker",
           "stage": 1
+        },
+        {
+          "evaluator_id": "semantic-judge",
+          "stage": 2
         }
       ],
       "stage_history": [
@@ -383,9 +431,18 @@
           "model": "deterministic",
           "model_version": "mechanical-checker/1.0",
           "prompt_version": "mechanical-checker/1.0"
+        },
+        {
+          "stage": 2,
+          "score": 0.92,
+          "self_reported_confidence": 0.88,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "semantic-judge/1.0",
+          "latency_ms": 920
         }
       ],
-      "notes": "6 cases pass in subagent-stop-stage-validation.test.ts: semantic-judge missing self_reported_confidence → block; valid confidence in [0,1] → no block; consensus-panel extra key → block; exact 3-key schema → no block; missing required key → block; unknown subagent_type → no false-positive block."
+      "notes": "6 cases pass in subagent-stop-stage-validation.test.ts: semantic-judge missing self_reported_confidence → block; valid confidence in [0,1] → no block; consensus-panel extra key → block; exact 3-key schema → no block; missing required key → block; unknown subagent_type → no false-positive block. Stage 2 semantic-judge confirmed sufficient (high confidence + no conflict signal) so Stage 3 not triggered."
     },
     {
       "criterion": "cost_ceiling_hook_auto_deny",
@@ -396,6 +453,14 @@
         {
           "evaluator_id": "mechanical-checker",
           "stage": 1
+        },
+        {
+          "evaluator_id": "semantic-judge",
+          "stage": 2
+        },
+        {
+          "evaluator_id": "consensus-panel",
+          "stage": 3
         }
       ],
       "stage_history": [
@@ -406,9 +471,45 @@
           "model": "deterministic",
           "model_version": "mechanical-checker/1.0",
           "prompt_version": "mechanical-checker/1.0"
+        },
+        {
+          "stage": 2,
+          "score": 0.91,
+          "self_reported_confidence": 0.86,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "semantic-judge/1.0",
+          "latency_ms": 880
+        },
+        {
+          "stage": 3,
+          "score": 0.96,
+          "self_reported_confidence": 0.93,
+          "model": "claude-opus-4-7",
+          "model_version": "claude-opus-4-7@2026-04-01",
+          "prompt_version": "consensus-panel/1.0",
+          "latency_ms": 1310
+        },
+        {
+          "stage": 3,
+          "score": 0.94,
+          "self_reported_confidence": 0.89,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "consensus-panel/1.0",
+          "latency_ms": 1020
+        },
+        {
+          "stage": 3,
+          "score": 0.95,
+          "self_reported_confidence": 0.91,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "consensus-panel/1.0",
+          "latency_ms": 1040
         }
       ],
-      "notes": "4 cases pass in cost-ceiling-hook-deny.test.ts: consensus-panel + RUBRIX_BUDGET_OVERRUN=1 → deny with cost-ceiling reason; consensus-panel without marker → no deny; Stage 1 mechanical-checker → bypass even with marker; Stage 2 semantic-judge under cascade origin → bypass."
+      "notes": "4 cases pass in cost-ceiling-hook-deny.test.ts: consensus-panel + RUBRIX_BUDGET_OVERRUN=1 → deny with cost-ceiling reason; consensus-panel without marker → no deny; Stage 1 mechanical-checker → bypass even with marker; Stage 2 semantic-judge under cascade origin → bypass. axis=security depth=deep triggered Stage 3 ensemble; cumulative_cost stayed below estimated_cost_ceiling=5.0 across the run."
     },
     {
       "criterion": "output_judge_historical_read_compat",
