@@ -39,7 +39,7 @@ function v13Passed(): RubrixContract {
       ],
     },
   ] as RubrixContract["scores"];
-  (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy = {
+  (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy = {
     source: "brief",
     locked_at: "2026-05-06T00:00:00.000Z",
     approved_by: "rubrix",

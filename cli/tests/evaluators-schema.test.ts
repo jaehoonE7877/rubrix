@@ -16,7 +16,7 @@ function v12Passed(): RubrixContract {
 function v13Passed(): RubrixContract {
   const c = v12Passed();
   c.version = "1.3.0";
-  (c as RubrixContract & { evaluation_policy: unknown }).evaluation_policy = {
+  (c as unknown as RubrixContract & { evaluation_policy: unknown }).evaluation_policy = {
     source: "brief",
     locked_at: "2026-05-06T00:00:00.000Z",
     approved_by: "rubrix",
@@ -79,7 +79,7 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
 
   it("accepts v1.3 contract with full stage_history including budget reason", () => {
     const c = v13Passed();
-    (c.scores![0] as NonNullable<RubrixContract["scores"]>[number] & { stage_history: unknown[] }).stage_history = [
+    ((c.scores as NonNullable<RubrixContract["scores"]>)[0] as NonNullable<RubrixContract["scores"]>[number] & { stage_history: unknown[] }).stage_history = [
       {
         stage: 2,
         score: 0.85,
@@ -95,7 +95,7 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
 
   it("rejects stage_history entry missing model_version (v1.4 drift input gate)", () => {
     const c = v13Passed();
-    const bad = JSON.parse(JSON.stringify(c.scores![0])) as Record<string, unknown>;
+    const bad = JSON.parse(JSON.stringify((c.scores as NonNullable<RubrixContract["scores"]>)[0])) as Record<string, unknown>;
     ((bad.stage_history as Array<Record<string, unknown>>)[0] as Record<string, unknown>).model_version = undefined;
     delete ((bad.stage_history as Array<Record<string, unknown>>)[0] as Record<string, unknown>).model_version;
     c.scores = [bad as unknown as NonNullable<RubrixContract["scores"]>[number]];
@@ -104,7 +104,7 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
 
   it("rejects stage_history entry missing prompt_version", () => {
     const c = v13Passed();
-    const bad = JSON.parse(JSON.stringify(c.scores![0])) as Record<string, unknown>;
+    const bad = JSON.parse(JSON.stringify((c.scores as NonNullable<RubrixContract["scores"]>)[0])) as Record<string, unknown>;
     delete ((bad.stage_history as Array<Record<string, unknown>>)[0] as Record<string, unknown>).prompt_version;
     c.scores = [bad as unknown as NonNullable<RubrixContract["scores"]>[number]];
     expect(validateContract(c).ok).toBe(false);
@@ -112,7 +112,7 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
 
   it("rejects evaluators[] entry with stage outside {1,2,3}", () => {
     const c = v13Passed();
-    (c.scores![0] as unknown as Record<string, unknown>).evaluators = [
+    ((c.scores as NonNullable<RubrixContract["scores"]>)[0] as Record<string, unknown>).evaluators = [
       { evaluator_id: "x", stage: 4 },
     ];
     expect(validateContract(c).ok).toBe(false);
@@ -120,7 +120,7 @@ describe("evaluators[] + stage_history schema (v1.3 PR #1)", () => {
 
   it("accepts both evaluator (string) and evaluators[] on the same score item (read-compat)", () => {
     const c = v13Passed();
-    (c.scores![0] as unknown as Record<string, unknown>).evaluator = "legacy-output-judge";
+    ((c.scores as NonNullable<RubrixContract["scores"]>)[0] as Record<string, unknown>).evaluator = "legacy-output-judge";
     expect(validateContract(c).ok).toBe(true);
   });
 });

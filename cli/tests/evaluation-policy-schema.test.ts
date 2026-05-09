@@ -34,7 +34,7 @@ function v13PassedWithPolicy(): RubrixContract {
       ],
     },
   ] as RubrixContract["scores"];
-  (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy = {
+  (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy = {
     source: "brief",
     locked_at: "2026-05-06T00:00:00.000Z",
     approved_by: "rubrix",
@@ -77,7 +77,7 @@ describe("evaluation_policy schema (v1.3 PR #1)", () => {
   for (const field of requiredFields) {
     it(`rejects evaluation_policy with missing required field: ${field}`, () => {
       const c = v13PassedWithPolicy();
-      const policy = (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy;
+      const policy = (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy;
       delete policy[field];
       expect(validateContract(c).ok).toBe(false);
     });
@@ -85,19 +85,19 @@ describe("evaluation_policy schema (v1.3 PR #1)", () => {
 
   it("rejects evaluation_policy.source outside enum {brief,user,cli-default}", () => {
     const c = v13PassedWithPolicy();
-    (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.source = "automation" as unknown as "brief" | "user" | "cli-default";
+    (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.source = "automation" as unknown as "brief" | "user" | "cli-default";
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("rejects empty frontier_models array (minItems: 1)", () => {
     const c = v13PassedWithPolicy();
-    (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.frontier_models = [];
+    (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.frontier_models = [];
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("accepts custom frontier_models (default is documented but not enforced)", () => {
     const c = v13PassedWithPolicy();
-    (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.frontier_models = ["custom-model-x"];
+    (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.frontier_models = ["custom-model-x"];
     expect(validateContract(c).ok).toBe(true);
   });
 
@@ -108,13 +108,13 @@ describe("evaluation_policy schema (v1.3 PR #1)", () => {
 
   it("rejects derived_from_brief_hash that is not 64 hex chars", () => {
     const c = v13PassedWithPolicy();
-    (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.derived_from_brief_hash = "short";
+    (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.derived_from_brief_hash = "short";
     expect(validateContract(c).ok).toBe(false);
   });
 
   it("rejects negative estimated_cost_ceiling", () => {
     const c = v13PassedWithPolicy();
-    (c as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.estimated_cost_ceiling = -1;
+    (c as unknown as RubrixContract & { evaluation_policy: Record<string, unknown> }).evaluation_policy.estimated_cost_ceiling = -1;
     expect(validateContract(c).ok).toBe(false);
   });
 });
