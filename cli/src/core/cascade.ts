@@ -73,6 +73,7 @@ export interface BudgetState {
   stage3_used: number;
   cumulative_cost: number;
   over_budget?: boolean;
+  approve_expensive?: boolean;
 }
 
 export function makeBudgetState(): BudgetState {
@@ -96,6 +97,13 @@ export function emitBudgetOverrunMarker(): void {
 
 export function clearBudgetOverrunMarker(): void {
   delete process.env.RUBRIX_BUDGET_OVERRUN;
+}
+
+function recordBudgetOverrun(budget: BudgetState): void {
+  budget.over_budget = true;
+  if (!budget.approve_expensive) {
+    emitBudgetOverrunMarker();
+  }
 }
 
 export interface CascadeReturn {
@@ -287,8 +295,7 @@ export function runCascade(
   }
 
   if (isOverBudget(budget, policy)) {
-    budget.over_budget = true;
-    emitBudgetOverrunMarker();
+    recordBudgetOverrun(budget);
     stage_history.push({
       stage: 2,
       score: stage2.score,
@@ -311,8 +318,7 @@ export function runCascade(
   budget.stage3_used += 1;
   budget.cumulative_cost += estimatePerStage3Cost(policy);
   if (isOverBudget(budget, policy)) {
-    budget.over_budget = true;
-    emitBudgetOverrunMarker();
+    recordBudgetOverrun(budget);
   }
   const stage3Start = Date.now();
   const stage3 = con(criterion, contract, stage2, policy);

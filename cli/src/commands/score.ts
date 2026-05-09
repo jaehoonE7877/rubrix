@@ -44,6 +44,9 @@ export function scoreCommand(opts: ScoreOptions): number {
     let blockers = 0;
 
     const sharedBudget = opts.cascadeOptions?.budgetState ?? makeBudgetState();
+    if (opts.approveExpensive) {
+      sharedBudget.approve_expensive = true;
+    }
     const userSink = opts.cascadeOptions?.recordSink;
 
     for (const criterion of c.rubric.criteria) {
