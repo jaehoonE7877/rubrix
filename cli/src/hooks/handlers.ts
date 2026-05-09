@@ -344,7 +344,36 @@ function targetsContract(input: HookInput, contractPath: string): boolean {
   return resolve(cwd, candidate) === resolve(contractPath);
 }
 
+const CASCADE_ORIGIN_MARKER = "rubrix-cascade-orchestrator";
+const STAGE12_EVALUATORS = new Set(["output-judge", "semantic-judge"]);
+const STAGE3_EVALUATORS = new Set(["consensus-panel"]);
+
+function evalCascadeRedirect(input: HookInput): HookDecision | null {
+  const tool = typeof input.tool_name === "string" ? input.tool_name : "";
+  if (tool !== "Task") return null;
+  const ti = (input.tool_input ?? {}) as Record<string, unknown>;
+  const subagentType = typeof ti.subagent_type === "string" ? ti.subagent_type : "";
+  const origin = typeof ti._cascade_origin === "string" ? ti._cascade_origin : "";
+  if (STAGE3_EVALUATORS.has(subagentType) && process.env.RUBRIX_BUDGET_OVERRUN === "1") {
+    return {
+      decision: "block",
+      reason:
+        "evaluation_policy.estimated_cost_ceiling exceeded; re-lock policy via rubrix lock --force <reason> or pass --approve-expensive to score",
+    };
+  }
+  if (STAGE12_EVALUATORS.has(subagentType) && origin !== CASCADE_ORIGIN_MARKER) {
+    return {
+      decision: "block",
+      reason:
+        "redirect-to-cascade: rubrix v1.3+ subroutes evaluator agents through cli/src/core/cascade.ts; invoke rubrix score instead of direct Task calls",
+    };
+  }
+  return null;
+}
+
 export function handlePreToolUse(input: HookInput): HookDecision {
+  const cascadeRedirect = evalCascadeRedirect(input);
+  if (cascadeRedirect !== null) return cascadeRedirect;
   const path = defaultContractPath(input);
   if (!existsSync(path)) return { decision: "allow" };
   let state: State;
@@ -479,7 +508,67 @@ export function handlePostToolBatch(_input: HookInput): HookDecision {
   return {};
 }
 
-export function handleSubagentStop(_input: HookInput): HookDecision {
+const STAGE3_REQUIRED_KEYS = ["score", "rationale_hash", "dissent_flag"] as const;
+
+function readSubagentType(input: HookInput): string {
+  const raw = (input as Record<string, unknown>).subagent_type;
+  if (typeof raw === "string") return raw;
+  if (typeof input.subagent_name === "string") return input.subagent_name;
+  return "";
+}
+
+function readToolResponse(input: HookInput): Record<string, unknown> | null {
+  const tr = (input as Record<string, unknown>).tool_response;
+  if (tr === null || tr === undefined) return null;
+  if (typeof tr !== "object") return null;
+  return tr as Record<string, unknown>;
+}
+
+export function handleSubagentStop(input: HookInput): HookDecision {
+  const subagentType = readSubagentType(input);
+  if (subagentType === "semantic-judge") {
+    const tr = readToolResponse(input);
+    if (tr === null) {
+      return {
+        decision: "block",
+        reason: "Stage 2 output schema violation: tool_response missing; re-run semantic-judge with the field populated",
+      };
+    }
+    const conf = tr.self_reported_confidence;
+    if (typeof conf !== "number" || Number.isNaN(conf) || conf < 0 || conf > 1) {
+      return {
+        decision: "block",
+        reason: "Stage 2 output schema violation: self_reported_confidence; re-run semantic-judge with a numeric confidence in [0,1]",
+      };
+    }
+    return {};
+  }
+  if (subagentType === "consensus-panel") {
+    const tr = readToolResponse(input);
+    if (tr === null) {
+      return {
+        decision: "block",
+        reason: "Stage 3 output schema violation: tool_response missing; re-run consensus-panel with {score, rationale_hash, dissent_flag}",
+      };
+    }
+    const present = new Set(Object.keys(tr));
+    const required = new Set<string>(STAGE3_REQUIRED_KEYS);
+    const missing = [...required].filter((k) => !present.has(k));
+    if (missing.length > 0) {
+      return {
+        decision: "block",
+        reason: `Stage 3 output schema violation: missing ${missing.join(", ")}; re-run consensus-panel with the strict 3-key schema`,
+      };
+    }
+    const extra = [...present].filter((k) => !required.has(k));
+    if (extra.length > 0) {
+      return {
+        decision: "block",
+        reason: `Stage 3 output schema violation: unexpected key(s) ${extra.join(", ")}; consensus-panel must return exactly {score, rationale_hash, dissent_flag}`,
+      };
+    }
+    return {};
+  }
   return {};
 }
 

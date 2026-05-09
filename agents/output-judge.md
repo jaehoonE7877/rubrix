@@ -1,5 +1,6 @@
 ---
 name: output-judge
+deprecated_in: 1.3.0
 description: Scores the implemented artifact against one rubric criterion using gathered evidence. The terminal evaluator before `rubrix gate --apply`.
 tools: Read, Glob, Grep
 ---

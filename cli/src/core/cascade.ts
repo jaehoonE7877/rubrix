@@ -71,10 +71,19 @@ export interface CascadeOptions {
 
 export interface BudgetState {
   stage3_used: number;
+  over_budget?: boolean;
 }
 
 export function makeBudgetState(): BudgetState {
-  return { stage3_used: 0 };
+  return { stage3_used: 0, over_budget: false };
+}
+
+export function emitBudgetOverrunMarker(): void {
+  process.env.RUBRIX_BUDGET_OVERRUN = "1";
+}
+
+export function clearBudgetOverrunMarker(): void {
+  delete process.env.RUBRIX_BUDGET_OVERRUN;
 }
 
 export interface CascadeReturn {
@@ -266,6 +275,8 @@ export function runCascade(
   }
 
   if (budget.stage3_used >= policy.max_stage3_criteria) {
+    budget.over_budget = true;
+    emitBudgetOverrunMarker();
     stage_history.push({
       stage: 2,
       score: stage2.score,

@@ -34,13 +34,13 @@ describe("semantic-judge agent file (Stage 2)", () => {
   });
 });
 
-describe("output-judge.md preservation (PR #3 will deprecate, PR #2 must NOT touch)", () => {
+describe("output-judge.md frontmatter (deprecated_in landed in v1.3.0 PR #3)", () => {
   it("file still exists with name=output-judge", () => {
     expect(OJ_TEXT).toMatch(/^---[\s\S]*?\nname:\s*output-judge\b/);
   });
 
-  it("PR #2 does NOT add deprecated_in marker (that lands in PR #3)", () => {
-    expect(OJ_TEXT).not.toContain("deprecated_in");
+  it("PR #3 adds deprecated_in: 1.3.0 marker in YAML frontmatter", () => {
+    expect(OJ_TEXT).toMatch(/^---[\s\S]*?\ndeprecated_in:\s*1\.3\.0\b[\s\S]*?\n---/);
   });
 });
 

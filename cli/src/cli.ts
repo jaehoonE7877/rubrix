@@ -39,8 +39,9 @@ program
   .command("report <path>")
   .description("Render a markdown report from a rubrix.json")
   .option("--out <file>", "write report to file instead of stdout")
-  .action((path: string, opts: { out?: string }) => {
-    process.exit(reportCommand({ path, out: opts.out }));
+  .option("--explain <criterion>", "v1.3+: append a detailed stage_history section for a single criterion")
+  .action((path: string, opts: { out?: string; explain?: string }) => {
+    process.exit(reportCommand({ path, out: opts.out, explain: opts.explain }));
   });
 
 const stateCmd = program.command("state").description("Inspect or transition the lifecycle state");
