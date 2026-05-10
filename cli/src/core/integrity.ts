@@ -98,7 +98,13 @@ export function checkLockHistoryIntegrity(c: RubrixContract): IntegrityIssue[] {
     }
   }
   const accepted = c.accepted_drift_history ?? [];
-  const countByArtifact = new Map<string, number>();
+  const lockHistoryAcceptCount = new Map<string, number>();
+  for (const entry of history) {
+    if (entry.event === "accept-drift" && (DRIFT_ARTIFACTS as ReadonlyArray<string>).includes(entry.artifact)) {
+      lockHistoryAcceptCount.set(entry.artifact, (lockHistoryAcceptCount.get(entry.artifact) ?? 0) + 1);
+    }
+  }
+  const acceptedHistoryCount = new Map<string, number>();
   accepted.forEach((entry, idx) => {
     if (!(DRIFT_ARTIFACTS as ReadonlyArray<string>).includes(entry.artifact)) {
       issues.push({ message: `accepted_drift_history[${idx}] has unknown artifact: ${entry.artifact}` });
@@ -107,13 +113,18 @@ export function checkLockHistoryIntegrity(c: RubrixContract): IntegrityIssue[] {
     if (entry.drift_score < 0 || entry.drift_score > 1) {
       issues.push({ message: `accepted_drift_history[${idx}] has drift_score out of [0,1]: ${entry.drift_score}` });
     }
-    const prev = countByArtifact.get(entry.artifact) ?? 0;
-    if (prev >= 1) {
+    acceptedHistoryCount.set(entry.artifact, (acceptedHistoryCount.get(entry.artifact) ?? 0) + 1);
+  });
+  const allArtifacts = new Set<string>([...lockHistoryAcceptCount.keys(), ...acceptedHistoryCount.keys()]);
+  for (const art of allArtifacts) {
+    const lockCount = lockHistoryAcceptCount.get(art) ?? 0;
+    const acceptedCount = acceptedHistoryCount.get(art) ?? 0;
+    const effective = Math.max(lockCount, acceptedCount);
+    if (effective > 1) {
       issues.push({
-        message: `accepted_drift_history[]: ${entry.artifact} accepted more than once (entry ${idx}); 1-shot bounded bypass allows at most one accept per artifact.`,
+        message: `1-shot bounded bypass: ${art} has ${effective} accept-drift entries (max of accepted_drift_history=${acceptedCount}, lock_history accept-drift=${lockCount}); only one accept per artifact is allowed.`,
       });
     }
-    countByArtifact.set(entry.artifact, prev + 1);
-  });
+  }
   return issues;
 }

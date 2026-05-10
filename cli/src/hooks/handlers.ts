@@ -4,8 +4,11 @@ import { ContractError, loadContract, type ArtifactKey, type RubrixContract } fr
 import type { State } from "../core/state.ts";
 import { isBriefSkipEnv, isCalibrated } from "../core/brief.ts";
 import { firstClarityViolation, recoveryCliPrefixForEnv } from "../core/clarity-gate.ts";
-import { isV12Plus } from "../core/version.ts";
+import { isV12Plus, isV14Plus } from "../core/version.ts";
 import { isBudgetOverrunMarkerSet } from "../core/cascade.ts";
+import { DRIFT_SCORER_VERSION, computeDriftScore, isAcceptedDrift, isScorerVersionCompatible } from "../core/drift.ts";
+
+const DEFAULT_DRIFT_HARD_THRESHOLD = 0.5;
 
 export type HookEvent =
   | "SessionStart"
@@ -375,6 +378,45 @@ function evalCascadeRedirect(input: HookInput): HookDecision | null {
   return null;
 }
 
+function evalDriftGate(contract: RubrixContract, contractPath: string): HookDecision | null {
+  const policy = contract.drift_policy;
+  if (!policy) return null;
+  if (!isScorerVersionCompatible(contract)) {
+    return {
+      decision: "block",
+      reason:
+        `[rubrix] drift_policy.scorer_version mismatch: contract pins '${policy.scorer_version}' but installed CLI is '${DRIFT_SCORER_VERSION}'. Re-lock evaluation_policy with the matching scorer_version, or upgrade the plugin.`,
+    };
+  }
+  const drift = computeDriftScore(contract);
+  const threshold = policy.threshold;
+  const hardThreshold = policy.hard_threshold ?? DEFAULT_DRIFT_HARD_THRESHOLD;
+  const evidenceShort = drift.evidence_hash.slice(0, 12);
+  const factorBreakdown = drift.factors.map((f) => `${f.factor}=${f.delta.toFixed(2)}`).join(", ");
+  if (drift.score > hardThreshold) {
+    return {
+      decision: "block",
+      reason:
+        `[rubrix] drift gate: score ${drift.score.toFixed(3)} > drift_policy.hard_threshold ${hardThreshold} — score blocked. ` +
+        `--accept-drift cannot bypass. Re-lock evaluation_policy or refresh intent.brief, then re-score.\n` +
+        `  evidence_hash: ${evidenceShort}…  factors: ${factorBreakdown}`,
+    };
+  }
+  if (drift.score > threshold) {
+    if (isAcceptedDrift(contract, drift.evidence_hash)) {
+      return null;
+    }
+    return {
+      decision: "block",
+      reason:
+        `[rubrix] drift gate: score ${drift.score.toFixed(3)} > drift_policy.threshold ${threshold} — score blocked. ` +
+        `Run \`rubrix drift ${contractPath}\` to inspect, then \`rubrix lock plan ${contractPath} --accept-drift "<reason>"\` (1-shot bounded bypass; same artifact 2회 차단; rubric/matrix/evaluation_policy도 가능).\n` +
+        `  evidence_hash: ${evidenceShort}…  factors: ${factorBreakdown}`,
+    };
+  }
+  return null;
+}
+
 export function handlePreToolUse(input: HookInput): HookDecision {
   const cascadeRedirect = evalCascadeRedirect(input);
   if (cascadeRedirect !== null) return cascadeRedirect;
@@ -416,6 +458,19 @@ export function handlePreToolUse(input: HookInput): HookDecision {
   if (!isCodeEdit && promptInvokesScore(prompt)) {
     if (!locks.plan) {
       return { decision: "block", reason: reasonForScoreBlocked(), additionalContext: ctx };
+    }
+    if (isV14Plus(contract)) {
+      if (!contract.drift_policy) {
+        return {
+          decision: "block",
+          reason:
+            `[rubrix] drift gate: v1.4+ contracts require drift_policy at /rubrix:score time (drift gate predicate). ` +
+            `Add drift_policy to ${path} (scorer_version='drift-scorer/1.0', threshold=0.3 default) and re-run.`,
+          additionalContext: ctx,
+        };
+      }
+      const driftDecision = evalDriftGate(contract, path);
+      if (driftDecision !== null) return { ...driftDecision, additionalContext: ctx };
     }
     return { decision: "allow" };
   }

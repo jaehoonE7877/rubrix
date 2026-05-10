@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "intent": {
     "summary": "Ship Rubrix v1.3.0 PR #3 (RUB-29) — PreToolUse invisible cascade redirect + cost-ceiling auto-deny + SubagentStop stage validation + report consensus column + dogfood Passed",
     "details": "Final PR of three for v1.3.0 Multi-Evaluator Cascade. Adds three hook responsibilities to cli/src/hooks/handlers.ts: (1) PreToolUse intercepts direct Task calls to output-judge / semantic-judge and invisibly redirects them to the cascade adapter (no main-agent warning, context isolation preserved); (2) handleSubagentStop enforces stage-specific output schema (Stage 2 self_reported_confidence missing → block + re-prompt); (3) cost-ceiling auto-deny when cascade.ts emits over-budget signal during a Stage 3 invocation. hooks/hooks.json adds SubagentStop matchers for semantic-judge / consensus-panel. cli/src/commands/report.ts populates the consensus column with actual stage_history data via --explain <criterion-id>. Finally, root rubrix.json walks brief → rubric → matrix → plan → implement → score at version=1.3.0 with full evaluation_policy provenance (source, locked_at, approved_by, derived_from_brief_hash, frontier_models, max_stage3_criteria, max_frontier_votes, estimated_cost_ceiling) and reaches state=Passed under the new cascade orchestrator.",
@@ -730,6 +730,7 @@
     "locked_at": "2026-05-09T04:10:00Z",
     "approved_by": "rubrix-dogfood-v1.3.0-pr3",
     "derived_from_brief_hash": "594c101f8c0fadd8650a65091cc4822e258596fd1e8a85af1469263624e3e8f5",
+    "derived_from_policy_hash": "fb5e46f773a07659e6f1771095efc235f8eb933bbda634717a700e41b525fce8",
     "stage1_required": true,
     "stage3_threshold": 0.6,
     "stage3_axes": [
@@ -744,5 +745,13 @@
       "claude-sonnet-4-6",
       "claude-sonnet-4-6"
     ]
+  },
+  "drift_policy": {
+    "scorer_version": "drift-scorer/1.0",
+    "threshold": 0.3,
+    "hard_threshold": 0.5,
+    "locked_at": "2026-05-11T00:00:00Z",
+    "approved_by": "rubrix-dogfood-v1.4.0-pr2",
+    "source": "user"
   }
 }
