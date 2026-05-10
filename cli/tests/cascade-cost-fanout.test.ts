@@ -107,6 +107,31 @@ describe("cascade Stage 3 cost fanout (v1.3.2 Fix 4)", () => {
     expect(budget.cumulative_cost).toBeCloseTo(2.0, 6);
   });
 
+  it("(round-2 P1) first Stage 3 call is rejected when projected fanout cost exceeds ceiling", () => {
+    const stubs = ambiguousStubs();
+    const policy = defaultPolicy({
+      max_stage3_criteria: 1,
+      stage3_axes: ["security"],
+      stage3_threshold: 0.5,
+      estimated_cost_ceiling: 2.0,
+      frontier_models: ["m1", "m2", "m3"],
+    });
+    const contract = deepBriefContract();
+    const budget = makeBudgetState();
+
+    const r = runCascadeForTest(makeCriterion({ id: "c1", axis: "security" }), policy, contract, {
+      mechanicalChecker: stubs.mechanicalChecker,
+      semanticJudge: stubs.semanticJudge,
+      consensusPanel: stubs.consensusPanel,
+      budgetState: budget,
+    });
+
+    expect(stubs.conCalls).toBe(0);
+    expect(r.record.skipped_stage3_due_to_budget).toBe(true);
+    expect(budget.over_budget).toBe(true);
+    expect(budget.cumulative_cost).toBe(0);
+  });
+
   it("ceiling soaks faster under fanout (3-ensemble exhausts budget at 2 invocations vs 5 single-model)", () => {
     const stubs = ambiguousStubs();
     const policy = defaultPolicy({
