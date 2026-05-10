@@ -156,4 +156,32 @@ describe("SubagentStop stage-aware validation (RUB-29 PR #3)", () => {
     expect(r.decision).toBe("block");
     expect(r.reason).toMatch(/unexpected key/);
   });
+
+  it("(v1.3.2 Fix 1) two ```json blocks — first valid object wins", () => {
+    const valid = JSON.stringify({ score: 0.9, rationale_hash: "abc", dissent_flag: false });
+    const r = handleSubagentStop({
+      agent_type: "consensus-panel",
+      last_assistant_message: "```json\nnot-valid-json-here\n```\n```json\n" + valid + "\n```",
+    } as Parameters<typeof handleSubagentStop>[0]);
+    expect(r.decision).not.toBe("block");
+  });
+
+  it("(v1.3.2 Fix 1) CRLF line endings inside fenced JSON still parse", () => {
+    const json = JSON.stringify({ score: 0.9, rationale_hash: "abc", dissent_flag: false });
+    const r = handleSubagentStop({
+      agent_type: "consensus-panel",
+      last_assistant_message: "```json\r\n" + json + "\r\n```",
+    } as Parameters<typeof handleSubagentStop>[0]);
+    expect(r.decision).not.toBe("block");
+  });
+
+  it("(v1.3.2 Fix 1) primitive JSON literals (number/null/string/array) → block (object required)", () => {
+    for (const literal of ["42", "null", '"score:0.9"', "[1,2,3]"]) {
+      const r = handleSubagentStop({
+        agent_type: "consensus-panel",
+        last_assistant_message: literal,
+      } as Parameters<typeof handleSubagentStop>[0]);
+      expect(r.decision, `expected block for literal ${literal}`).toBe("block");
+    }
+  });
 });

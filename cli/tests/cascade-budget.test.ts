@@ -17,7 +17,12 @@ describe("cascade budget enforcement (max_stage3_criteria)", () => {
       },
     );
 
-    const policy = defaultPolicy({ max_stage3_criteria: 5, stage3_axes: ["security"], stage3_threshold: 0.5 });
+    const policy = defaultPolicy({
+      max_stage3_criteria: 5,
+      stage3_axes: ["security"],
+      stage3_threshold: 0.5,
+      frontier_models: ["solo"],
+    });
     const contract = deepBriefContract();
     const budget = makeBudgetState();
 
@@ -52,7 +57,12 @@ describe("cascade budget enforcement (max_stage3_criteria)", () => {
         ],
       },
     );
-    const policy = defaultPolicy({ max_stage3_criteria: 1, stage3_axes: ["security"], stage3_threshold: 0.5 });
+    const policy = defaultPolicy({
+      max_stage3_criteria: 1,
+      stage3_axes: ["security"],
+      stage3_threshold: 0.5,
+      frontier_models: ["solo"],
+    });
     const contract = deepBriefContract();
     const budget = makeBudgetState();
 

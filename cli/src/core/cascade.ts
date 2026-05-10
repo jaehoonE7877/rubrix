@@ -340,7 +340,8 @@ export function runCascade(
   }
 
   budget.stage3_used += 1;
-  budget.cumulative_cost += estimatePerStage3Cost(policy);
+  const fanout = Math.max(policy.frontier_models.length, 1);
+  budget.cumulative_cost += estimatePerStage3Cost(policy) * fanout;
   if (isOverBudget(budget, policy)) {
     recordBudgetOverrun(budget);
   }
