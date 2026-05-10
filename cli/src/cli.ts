@@ -68,8 +68,9 @@ program
     return n;
   })
   .option("--force <reason>", "v1.2+: bypass clarity threshold; persists forced=true with forced_at + force_reason for audit (rubrix report surfaces forced locks)")
-  .action((key: string, path: string, opts: { threshold?: number; force?: string }) => {
-    process.exit(lockCommand({ key, path, threshold: opts.threshold, force: opts.force }));
+  .option("--accept-drift <reason>", "v1.4+: 1-shot bounded bypass for the drift gate; persists accepted_drift_history[] entry + lock_history audit (drift > drift_policy.hard_threshold cannot be accepted)")
+  .action((key: string, path: string, opts: { threshold?: number; force?: string; acceptDrift?: string }) => {
+    process.exit(lockCommand({ key, path, threshold: opts.threshold, force: opts.force, acceptDrift: opts.acceptDrift }));
   });
 
 program
@@ -108,7 +109,7 @@ program
 
 program
   .command("drift <path>")
-  .description("v1.4+ drift detection (PR #1 stub: parses args, prints version/state placeholder; computeDriftScore wires in PR #2)")
+  .description("v1.4+: deterministic drift score (read-only). Compares intent.brief / evaluation_policy canonical hashes against derived_from_*_hash stamps and stage_history models against frontier_models; surfaces factor breakdown + gate status.")
   .option("--json", "emit JSON output")
   .action((path: string, opts: { json?: boolean }) => {
     process.exit(driftCommand({ path, json: opts.json }));

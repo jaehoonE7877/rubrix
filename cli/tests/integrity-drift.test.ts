@@ -133,7 +133,7 @@ describe("checkLockHistoryIntegrity — accepted_drift_history[] (1-shot bounded
       { artifact: "plan", drift_score: 0.4, accepted_at: "2026-05-10T00:02:00.000Z", reason: "z", scorer_version: "drift-scorer/1.0" },
     ];
     const issues = checkLockHistoryIntegrity(c);
-    expect(issues.some((i) => i.message.includes("plan accepted more than once"))).toBe(true);
+    expect(issues.some((i) => i.message.includes("plan") && i.message.includes("1-shot bounded"))).toBe(true);
   });
 
   it("flags two consecutive accepts on the same artifact", () => {
@@ -143,7 +143,7 @@ describe("checkLockHistoryIntegrity — accepted_drift_history[] (1-shot bounded
       { artifact: "rubric", drift_score: 0.4, accepted_at: "2026-05-10T00:01:00.000Z", reason: "x", scorer_version: "drift-scorer/1.0" },
     ];
     const issues = checkLockHistoryIntegrity(c);
-    expect(issues.some((i) => i.message.includes("rubric accepted more than once"))).toBe(true);
+    expect(issues.some((i) => i.message.includes("rubric") && i.message.includes("1-shot bounded"))).toBe(true);
   });
 
   it("flags drift_score out of [0,1]", () => {

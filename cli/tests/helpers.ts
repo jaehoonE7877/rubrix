@@ -1,7 +1,9 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import type { Clarity, RubrixContract } from "../src/core/contract.ts";
+import { canonicalize } from "../src/core/clarity.ts";
 
 export function tempContractFile(c: RubrixContract): string {
   const dir = mkdtempSync(join(tmpdir(), "rubrix-test-"));
@@ -50,6 +52,19 @@ export function clarity(score: number, threshold: number, extra: Partial<Clarity
     forced: false,
     ...extra,
   };
+}
+
+export function stampDerivedHashes(c: RubrixContract): RubrixContract {
+  if (!c.intent.brief || !c.evaluation_policy) return c;
+  const briefHash = createHash("sha256").update(canonicalize(c.intent.brief)).digest("hex");
+  c.evaluation_policy.derived_from_brief_hash = briefHash;
+  const selfBody: Record<string, unknown> = { ...c.evaluation_policy };
+  delete selfBody.locked_at;
+  delete selfBody.derived_from_brief_hash;
+  delete selfBody.derived_from_policy_hash;
+  const policyHash = createHash("sha256").update(canonicalize(selfBody)).digest("hex");
+  c.evaluation_policy.derived_from_policy_hash = policyHash;
+  return c;
 }
 
 export function baseV14Passed(): RubrixContract {
