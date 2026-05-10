@@ -51,3 +51,50 @@ export function clarity(score: number, threshold: number, extra: Partial<Clarity
     ...extra,
   };
 }
+
+export function baseV14Passed(): RubrixContract {
+  const c = baseV12Drafted();
+  c.version = "1.4.0";
+  c.state = "Passed";
+  c.locks = { rubric: true, matrix: true, plan: true };
+  c.rubric!.clarity = clarity(0.9, 0.75);
+  c.matrix = { rows: [{ id: "r1", criterion: "c1", evidence_required: "x" }], clarity: clarity(0.9, 0.8) };
+  c.plan = { steps: [{ id: "s1", action: "do", covers: ["r1"] }], clarity: clarity(0.9, 0.7) };
+  c.scores = [
+    {
+      criterion: "c1",
+      score: 0.9,
+      evaluators: [{ evaluator_id: "semantic-judge", stage: 2 }],
+      stage_history: [
+        {
+          stage: 2,
+          score: 0.9,
+          self_reported_confidence: 0.85,
+          model: "claude-sonnet-4-6",
+          model_version: "claude-sonnet-4-6-20260301",
+          prompt_version: "semantic-judge/1.0",
+        },
+      ],
+    },
+  ];
+  c.evaluation_policy = {
+    source: "brief",
+    locked_at: "2026-05-06T00:00:00.000Z",
+    approved_by: "rubrix",
+    derived_from_brief_hash: "a".repeat(64),
+    derived_from_policy_hash: "b".repeat(64),
+    stage1_required: true,
+    stage3_threshold: 0.7,
+    stage3_axes: ["security"],
+    max_stage3_criteria: 5,
+    max_frontier_votes: 3,
+    estimated_cost_ceiling: 5.0,
+    frontier_models: ["claude-opus-4-7", "claude-sonnet-4-6", "claude-sonnet-4-6"],
+  };
+  c.drift_policy = {
+    scorer_version: "drift-scorer/1.0",
+    threshold: 0.3,
+    hard_threshold: 0.5,
+  };
+  return c;
+}

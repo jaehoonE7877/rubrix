@@ -11,6 +11,7 @@ import { hookCommand } from "./commands/hook.ts";
 import { briefGetCommand, briefInitCommand } from "./commands/brief.ts";
 import { scoreClarityCommand } from "./commands/score-clarity.ts";
 import { scoreCommand } from "./commands/score.ts";
+import { driftCommand } from "./commands/drift.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(here, "../package.json"), "utf8")) as { version: string };
@@ -103,6 +104,14 @@ program
         approveExpensive: opts.approveExpensive,
       }),
     );
+  });
+
+program
+  .command("drift <path>")
+  .description("v1.4+ drift detection (PR #1 stub: parses args, prints version/state placeholder; computeDriftScore wires in PR #2)")
+  .option("--json", "emit JSON output")
+  .action((path: string, opts: { json?: boolean }) => {
+    process.exit(driftCommand({ path, json: opts.json }));
   });
 
 program
