@@ -167,10 +167,29 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
     expect(validateContract(c).ok).toBe(false);
   });
 
-  it("v1.4.0 contract WITH evaluation_policy validates", () => {
+  it("v1.4.0 contract WITH evaluation_policy + v1.4 fields (drift_policy + derived_from_policy_hash) validates", () => {
     const c = v13Passed();
     c.version = "1.4.0";
+    c.evaluation_policy!.derived_from_policy_hash = "b".repeat(64);
+    (c as unknown as Record<string, unknown>).drift_policy = {
+      scorer_version: "drift-scorer/1.0",
+      threshold: 0.3,
+    };
     expect(validateContract(c).ok).toBe(true);
+  });
+
+  it("v1.4.0 contract WITHOUT derived_from_policy_hash fails (v1.4+ fail-closed symmetry)", () => {
+    const c = v13Passed();
+    c.version = "1.4.0";
+    (c as unknown as Record<string, unknown>).drift_policy = { scorer_version: "drift-scorer/1.0", threshold: 0.3 };
+    expect(validateContract(c).ok).toBe(false);
+  });
+
+  it("v1.4.0 contract at state=Passed WITHOUT drift_policy fails (v1.4+ fail-closed)", () => {
+    const c = v13Passed();
+    c.version = "1.4.0";
+    c.evaluation_policy!.derived_from_policy_hash = "b".repeat(64);
+    expect(validateContract(c).ok).toBe(false);
   });
 
   it("v0.1.0 contract WITHOUT evaluation_policy still validates (v0.x fail-open)", () => {
@@ -209,8 +228,10 @@ describe("version-aware fail-open / fail-closed (v1.3 PR #1)", () => {
     expect(validateContract(c).ok).toBe(false);
   });
 
-  it("multi-digit minors like '1.10.0' / '1.20.0' are still accepted (only padding is rejected)", () => {
+  it("multi-digit minors like '1.10.0' / '1.20.0' are still accepted (only padding is rejected; v1.10+ also enforces v1.4+ surface)", () => {
     const c = v13Passed();
+    c.evaluation_policy!.derived_from_policy_hash = "b".repeat(64);
+    (c as unknown as Record<string, unknown>).drift_policy = { scorer_version: "drift-scorer/1.0", threshold: 0.3 };
     c.version = "1.10.0";
     expect(validateContract(c).ok).toBe(true);
     c.version = "1.20.0";

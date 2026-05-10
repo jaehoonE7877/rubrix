@@ -331,6 +331,11 @@
           "pattern": "^[a-f0-9]{64}$",
           "description": "SHA-256 of the canonical (sorted-keys) JSON of intent.brief at policy-lock time. Drives v1.4 drift if brief changes after policy lock."
         },
+        "derived_from_policy_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "v1.4+: SHA-256 of canonical (sorted-keys) JSON of evaluation_policy itself, EXCLUDING this field, `derived_from_brief_hash`, and `locked_at`. Detects post-lock edits to budget caps / frontier_models / cascade thresholds. Optional on v1.0~v1.3 (read-compat fail-open); required on v1.4+ via allOf branch. Symmetric counterpart to derived_from_brief_hash."
+        },
         "stage1_required": { "type": "boolean", "description": "When true, every criterion runs through mechanical-checker before semantic-judge can fire." },
         "stage3_threshold": { "type": "number", "minimum": 0, "maximum": 1, "description": "Stage 2 self_reported_confidence < threshold triggers Stage 3 (combined with multi-trigger conditions)." },
         "stage3_axes": {
@@ -364,6 +369,74 @@
             "type": "array",
             "items": { "type": "string", "description": "matrix.rows[].id this evidence supports." }
           }
+        }
+      }
+    },
+    "drift_policy": {
+      "type": "object",
+      "description": "v1.4+ deterministic drift gate policy. Locked once and consumed by `rubrix drift` and the PreToolUse drift gate. Required on v1.4+ contracts when state ∈ {Scoring, Passed, Failed} (drift-only matters once cascade fires); fail-open on v1.0~v1.3.",
+      "required": ["scorer_version", "threshold"],
+      "additionalProperties": false,
+      "properties": {
+        "scorer_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "e.g. 'drift-scorer/1.0' — bump invalidates any cached drift score and forces re-computation."
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "drift > threshold → score deny + `--accept-drift` 1-shot bounded bypass available. Notion v1.4 default = 0.3."
+        },
+        "hard_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "drift > hard_threshold → unconditional hard deny (--accept-drift ignored). Notion v1.4 default = 0.5."
+        },
+        "locked_at": { "type": "string", "format": "date-time" },
+        "approved_by": { "type": "string", "minLength": 1, "description": "User or agent that locked the policy." },
+        "source": { "type": "string", "enum": ["brief", "user", "cli-default"] }
+      }
+    },
+    "accepted_drift_history": {
+      "type": "array",
+      "description": "v1.4+ append-only audit log of `rubrix lock <artifact> --accept-drift <reason>` invocations. Each entry is one bounded bypass; consecutive entries on the same artifact are denied (1-shot bounded). Entries with drift_score > drift_policy.hard_threshold are never appended (hard deny). Empty/absent on v1.3 contracts.",
+      "items": {
+        "type": "object",
+        "required": ["artifact", "drift_score", "accepted_at", "reason", "scorer_version"],
+        "additionalProperties": false,
+        "properties": {
+          "artifact": { "type": "string", "enum": ["rubric", "matrix", "plan", "evaluation_policy"] },
+          "drift_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "accepted_at": { "type": "string", "format": "date-time" },
+          "reason": { "type": "string", "minLength": 1 },
+          "scorer_version": { "type": "string", "minLength": 1 },
+          "evidence_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA-256 over the canonical drift evidence (artifact bytes + brief/policy hashes) at acceptance time."
+          },
+          "accepted_by": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "lock_history": {
+      "type": "array",
+      "description": "v1.4+ append-only summary ledger of lock/re-lock/force/accept-drift/unlock events for rubric/matrix/plan/evaluation_policy. v1.4 keeps a compact snapshot here; v1.5 will promote the canonical audit trail to events.jsonl (this field stays as a derived summary).",
+      "items": {
+        "type": "object",
+        "required": ["artifact", "event", "occurred_at"],
+        "additionalProperties": false,
+        "properties": {
+          "artifact": { "type": "string", "enum": ["rubric", "matrix", "plan", "evaluation_policy"] },
+          "event": { "type": "string", "enum": ["lock", "re-lock", "force-lock", "accept-drift", "unlock"] },
+          "occurred_at": { "type": "string", "format": "date-time" },
+          "actor": { "type": "string", "minLength": 1, "description": "User or agent that performed the event." },
+          "artifact_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "drift_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "reason": { "type": "string", "description": "Required for force-lock and accept-drift events." }
         }
       }
     }
@@ -438,6 +511,47 @@
         "required": ["version"]
       },
       "then": { "required": ["evaluation_policy"] }
+    },
+    {
+      "$comment": "v1.4+ fail-closed: every contract at version >= 1.4.0 (1.4.x, 1.5.x, ..., 2.x) requires evaluation_policy.derived_from_policy_hash so the policy itself is drift-detectable. v1.3.x stays fail-open (the field is optional there for additive read-compat). Exclusion regex `^0\\.|^1\\.[0123](\\.|$)` excludes v0.x/v1.0/v1.1/v1.2/v1.3 without matching v1.10/v1.20/v1.30. Mirrors the v1.3+ evaluation_policy fail-closed pattern.",
+      "if": {
+        "properties": {
+          "version": {
+            "not": { "pattern": "^0\\.|^1\\.[0123](\\.|$)" }
+          }
+        },
+        "required": ["version"]
+      },
+      "then": {
+        "properties": {
+          "evaluation_policy": {
+            "required": [
+              "source",
+              "locked_at",
+              "approved_by",
+              "derived_from_brief_hash",
+              "derived_from_policy_hash",
+              "stage1_required",
+              "stage3_threshold",
+              "stage3_axes",
+              "max_stage3_criteria",
+              "max_frontier_votes",
+              "estimated_cost_ceiling",
+              "frontier_models"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "$comment": "v1.4+ fail-closed: when state ∈ {Scoring, Passed, Failed} on a v1.4+ contract, drift_policy is required at the top level (drift gate runs at score-time and depends on threshold/scorer_version pin). Earlier states do not require drift_policy because no scoring has fired. v1.3.x and below remain fail-open (drift_policy is accepted but never required).",
+      "if": {
+        "allOf": [
+          { "properties": { "version": { "not": { "pattern": "^0\\.|^1\\.[0123](\\.|$)" } } }, "required": ["version"] },
+          { "properties": { "state": { "enum": ["Scoring", "Passed", "Failed"] } }, "required": ["state"] }
+        ]
+      },
+      "then": { "required": ["drift_policy"] }
     }
   ]
 }

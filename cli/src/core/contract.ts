@@ -74,6 +74,7 @@ export interface EvaluationPolicy {
   locked_at: string;
   approved_by: string;
   derived_from_brief_hash: string;
+  derived_from_policy_hash?: string;
   stage1_required: boolean;
   stage3_threshold: number;
   stage3_axes: string[];
@@ -81,6 +82,38 @@ export interface EvaluationPolicy {
   max_frontier_votes: number;
   estimated_cost_ceiling: number;
   frontier_models: string[];
+}
+
+export type DriftArtifactKey = "rubric" | "matrix" | "plan" | "evaluation_policy";
+export type LockEvent = "lock" | "re-lock" | "force-lock" | "accept-drift" | "unlock";
+
+export interface DriftPolicy {
+  scorer_version: string;
+  threshold: number;
+  hard_threshold?: number;
+  locked_at?: string;
+  approved_by?: string;
+  source?: "brief" | "user" | "cli-default";
+}
+
+export interface AcceptedDriftEntry {
+  artifact: DriftArtifactKey;
+  drift_score: number;
+  accepted_at: string;
+  reason: string;
+  scorer_version: string;
+  evidence_hash?: string;
+  accepted_by?: string;
+}
+
+export interface LockHistoryEntry {
+  artifact: DriftArtifactKey;
+  event: LockEvent;
+  occurred_at: string;
+  actor?: string;
+  artifact_hash?: string;
+  drift_score?: number;
+  reason?: string;
 }
 
 export interface RubrixContract {
@@ -106,6 +139,9 @@ export interface RubrixContract {
   }>;
   evidence?: Array<{ id: string; kind: string; ref?: string; summary?: string; covers?: string[] }>;
   evaluation_policy?: EvaluationPolicy;
+  drift_policy?: DriftPolicy;
+  accepted_drift_history?: AcceptedDriftEntry[];
+  lock_history?: LockHistoryEntry[];
 }
 
 const here = dirname(fileURLToPath(import.meta.url));

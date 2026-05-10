@@ -1,5 +1,7 @@
 import type { RubrixContract } from "./contract.ts";
 
+const DRIFT_ARTIFACTS = ["rubric", "matrix", "plan", "evaluation_policy"] as const;
+
 export interface IntegrityIssue {
   message: string;
 }
@@ -56,5 +58,62 @@ export function checkPlanIntegrity(c: RubrixContract): IntegrityIssue[] {
   if (uncovered.length) {
     issues.push({ message: `matrix.rows[] not covered by any plan step: ${uncovered.join(", ")}` });
   }
+  return issues;
+}
+
+export function checkDriftPolicyIntegrity(c: RubrixContract): IntegrityIssue[] {
+  const issues: IntegrityIssue[] = [];
+  const policy = c.drift_policy;
+  if (!policy) return issues;
+  if (!Number.isFinite(policy.threshold) || policy.threshold < 0 || policy.threshold > 1) {
+    issues.push({ message: `drift_policy.threshold must be in [0,1], got ${policy.threshold}` });
+  }
+  if (policy.hard_threshold !== undefined) {
+    if (!Number.isFinite(policy.hard_threshold) || policy.hard_threshold < 0 || policy.hard_threshold > 1) {
+      issues.push({ message: `drift_policy.hard_threshold must be in [0,1], got ${policy.hard_threshold}` });
+    } else if (policy.hard_threshold < policy.threshold) {
+      issues.push({
+        message: `drift_policy.hard_threshold (${policy.hard_threshold}) must be >= drift_policy.threshold (${policy.threshold}); soft gate must trip before hard deny.`,
+      });
+    }
+  }
+  if (typeof policy.scorer_version !== "string" || policy.scorer_version.trim().length === 0) {
+    issues.push({ message: `drift_policy.scorer_version must be a non-empty string (pin format e.g. 'drift-scorer/1.0')` });
+  }
+  return issues;
+}
+
+export function checkLockHistoryIntegrity(c: RubrixContract): IntegrityIssue[] {
+  const issues: IntegrityIssue[] = [];
+  const history = c.lock_history ?? [];
+  for (const entry of history) {
+    if (!(DRIFT_ARTIFACTS as ReadonlyArray<string>).includes(entry.artifact)) {
+      issues.push({ message: `lock_history[] entry has unknown artifact: ${entry.artifact}` });
+    }
+    if ((entry.event === "force-lock" || entry.event === "accept-drift") && (!entry.reason || entry.reason.trim().length === 0)) {
+      issues.push({ message: `lock_history[] entry with event=${entry.event} requires a non-empty reason (artifact=${entry.artifact}, occurred_at=${entry.occurred_at})` });
+    }
+    if (entry.drift_score !== undefined && (entry.drift_score < 0 || entry.drift_score > 1)) {
+      issues.push({ message: `lock_history[] entry has drift_score out of [0,1]: ${entry.drift_score} (artifact=${entry.artifact})` });
+    }
+  }
+  const accepted = c.accepted_drift_history ?? [];
+  const countByArtifact = new Map<string, number>();
+  accepted.forEach((entry, idx) => {
+    if (!(DRIFT_ARTIFACTS as ReadonlyArray<string>).includes(entry.artifact)) {
+      issues.push({ message: `accepted_drift_history[${idx}] has unknown artifact: ${entry.artifact}` });
+      return;
+    }
+    if (entry.drift_score < 0 || entry.drift_score > 1) {
+      issues.push({ message: `accepted_drift_history[${idx}] has drift_score out of [0,1]: ${entry.drift_score}` });
+    }
+    const prev = countByArtifact.get(entry.artifact) ?? 0;
+    if (prev >= 1) {
+      issues.push({
+        message: `accepted_drift_history[]: ${entry.artifact} accepted more than once (entry ${idx}); 1-shot bounded bypass allows at most one accept per artifact.`,
+      });
+    }
+    countByArtifact.set(entry.artifact, prev + 1);
+  });
   return issues;
 }
