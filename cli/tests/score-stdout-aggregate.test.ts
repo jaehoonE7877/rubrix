@@ -31,7 +31,7 @@ function smallScoringContract(): RubrixContract {
   };
   c.matrix = { rows: [{ id: "ra", criterion: "a", evidence_required: "x" }, { id: "rb", criterion: "b", evidence_required: "y" }] };
   c.plan = { steps: [{ id: "sa", action: "do a" }, { id: "sb", action: "do b" }] };
-  c.evaluation_policy = defaultPolicy();
+  c.evaluation_policy = defaultPolicy({ frontier_models: ["solo"] });
   c.state = "PlanLocked";
   c.locks = { rubric: true, matrix: true, plan: true };
   return c;
@@ -172,7 +172,7 @@ describe("rubrix score stdout = aggregate only (Codex critical context-isolation
 
     const c2 = smallScoringContract();
     c2.rubric!.criteria = Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, description: `crit${i}`, weight: 1 / 6, floor: 0.5, axis: "security" as const, verify: `echo c${i}` }));
-    c2.evaluation_policy = defaultPolicy({ max_stage3_criteria: 2, stage3_axes: ["security"], stage3_threshold: 0.9 });
+    c2.evaluation_policy = defaultPolicy({ max_stage3_criteria: 2, stage3_axes: ["security"], stage3_threshold: 0.9, frontier_models: ["solo"] });
     const path2 = tempContractFile(c2);
     const stage3Hits2: string[] = [];
     captureStdout(() =>

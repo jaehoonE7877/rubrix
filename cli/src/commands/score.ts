@@ -20,12 +20,22 @@ export interface ScoreOptions {
   cascadeOptions?: CascadeOptions;
 }
 
+const SCORABLE_STATES = new Set<RubrixContract["state"]>([
+  "PlanLocked",
+  "Scoring",
+  "Passed",
+]);
+
 export function scoreCommand(opts: ScoreOptions): number {
   try {
-    if (opts.approveExpensive) {
-      clearBudgetOverrunMarker();
-    }
+    clearBudgetOverrunMarker();
     const c = loadContract(opts.path);
+    if (!SCORABLE_STATES.has(c.state)) {
+      process.stderr.write(
+        `rubrix score: state=${c.state} (must be PlanLocked or later — run /rubrix:plan and lock the plan first)\n`,
+      );
+      return 3;
+    }
     if (!c.rubric) {
       process.stderr.write(`rubrix score: rubric is missing on ${opts.path}; cannot score\n`);
       return 3;

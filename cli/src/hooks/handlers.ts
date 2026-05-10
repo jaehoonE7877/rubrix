@@ -512,7 +512,7 @@ export function handlePostToolBatch(_input: HookInput): HookDecision {
   return {};
 }
 
-const STAGE3_REQUIRED_KEYS = ["score", "rationale_hash", "dissent_flag"] as const;
+export const STAGE3_REQUIRED_KEYS = ["score", "rationale_hash", "dissent_flag"] as const;
 
 function readSubagentType(input: HookInput): string {
   const rec = input as Record<string, unknown>;
@@ -536,9 +536,14 @@ function parseAssistantJsonPayload(input: HookInput): Record<string, unknown> | 
   const msg = rec.last_assistant_message;
   if (typeof msg === "string") {
     const trimmed = msg.trim();
-    const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-    const fenced = fenceMatch?.[1]?.trim();
-    const candidates = fenced ? [fenced, trimmed] : [trimmed];
+    const fenceRegex = /```(?:json)?\s*\r?\n?([\s\S]*?)\r?\n?```/g;
+    const fencedBlocks: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = fenceRegex.exec(trimmed)) !== null) {
+      const inner = m[1]?.trim();
+      if (inner) fencedBlocks.push(inner);
+    }
+    const candidates = fencedBlocks.length > 0 ? [...fencedBlocks, trimmed] : [trimmed];
     for (const candidate of candidates) {
       try {
         const parsed = JSON.parse(candidate);

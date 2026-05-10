@@ -40,7 +40,7 @@ export function defaultPolicy(overrides: Partial<EvaluationPolicy> = {}): Evalua
     stage3_axes: ["security", "correctness"],
     max_stage3_criteria: 5,
     max_frontier_votes: 3,
-    estimated_cost_ceiling: 5.0,
+    estimated_cost_ceiling: 1000.0,
     frontier_models: ["claude-opus-4-7", "claude-sonnet-4-6", "claude-sonnet-4-6"],
     ...overrides,
   };

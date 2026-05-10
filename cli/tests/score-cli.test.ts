@@ -85,7 +85,7 @@ describe("score CLI (v1.3 PR #2 — replaces PR #1 stub)", () => {
     expect(out.split("\n")[0]).toMatch(/^passed=\d+ skipped=\d+ blockers=\d+$/);
   });
 
-  it("returns exit 3 when contract has no rubric (cannot score)", () => {
+  it("(v1.3.2 Fix 5) returns exit 3 when state is below PlanLocked (lifecycle gate)", () => {
     const c = smallContract();
     delete c.rubric;
     c.state = "IntentDrafted";
@@ -95,7 +95,7 @@ describe("score CLI (v1.3 PR #2 — replaces PR #1 stub)", () => {
     const path = tempContractFile(c);
     const { code, err } = captureStderr(() => scoreCommand({ path, cascadeOptions: stubAlwaysPass }));
     expect(code).toBe(3);
-    expect(err).toContain("rubric is missing");
+    expect(err).toContain("must be PlanLocked or later");
   });
 
   it("returns nonzero when v1.3.0 contract is missing evaluation_policy (schema rejects at load time)", () => {
@@ -106,5 +106,34 @@ describe("score CLI (v1.3 PR #2 — replaces PR #1 stub)", () => {
     const { code, err } = captureStderr(() => scoreCommand({ path, cascadeOptions: stubAlwaysPass }));
     expect(code).not.toBe(0);
     expect(err).toContain("evaluation_policy");
+  });
+
+  it("(v1.3.2 Fix 3) clears stale RUBRIX_BUDGET_OVERRUN env on startup without --approve-expensive", () => {
+    process.env.RUBRIX_BUDGET_OVERRUN = "1";
+    try {
+      const path = tempContractFile(smallContract());
+      captureStdout(() => scoreCommand({ path, cascadeOptions: stubAlwaysPass }));
+      expect(process.env.RUBRIX_BUDGET_OVERRUN).toBeUndefined();
+    } finally {
+      delete process.env.RUBRIX_BUDGET_OVERRUN;
+    }
+  });
+
+  it("(v1.3.2 Fix 5) accepts state=Scoring (re-score allowed)", () => {
+    const c = smallContract();
+    c.state = "Scoring";
+    const path = tempContractFile(c);
+    const { code } = captureStdout(() => scoreCommand({ path, cascadeOptions: stubAlwaysPass }));
+    expect(code).toBe(0);
+  });
+
+  it("(v1.3.2 Fix 5) rejects state=Failed (Failed → PlanDrafted recovery loop required by CLAUDE.md)", () => {
+    const c = smallContract();
+    c.state = "Failed";
+    c.scores = [];
+    const path = tempContractFile(c);
+    const { code, err } = captureStderr(() => scoreCommand({ path, cascadeOptions: stubAlwaysPass }));
+    expect(code).toBe(3);
+    expect(err).toContain("must be PlanLocked or later");
   });
 });

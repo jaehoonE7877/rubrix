@@ -318,7 +318,11 @@ export function runCascade(
     return caller;
   }
 
-  if (isOverBudget(budget, policy)) {
+  const fanout = Math.max(policy.frontier_models.length, 1);
+  const projectedAddition = estimatePerStage3Cost(policy) * fanout;
+  const projectedCost = budget.cumulative_cost + projectedAddition;
+  const wouldExceedCeiling = projectedCost > policy.estimated_cost_ceiling;
+  if (isOverBudget(budget, policy) || wouldExceedCeiling) {
     recordBudgetOverrun(budget);
     stage_history.push({
       stage: 2,
@@ -340,7 +344,7 @@ export function runCascade(
   }
 
   budget.stage3_used += 1;
-  budget.cumulative_cost += estimatePerStage3Cost(policy);
+  budget.cumulative_cost = projectedCost;
   if (isOverBudget(budget, policy)) {
     recordBudgetOverrun(budget);
   }
