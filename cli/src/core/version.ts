@@ -33,6 +33,7 @@ export function isAtLeast(version: string, target: string): boolean {
 const V1_2 = "1.2.0";
 const V1_3 = "1.3.0";
 const V1_4 = "1.4.0";
+const V1_5 = "1.5.0";
 
 export function isV12Plus(c: Pick<RubrixContract, "version">): boolean {
   try {
@@ -53,6 +54,14 @@ export function isV13Plus(c: Pick<RubrixContract, "version">): boolean {
 export function isV14Plus(c: Pick<RubrixContract, "version">): boolean {
   try {
     return isAtLeast(c.version, V1_4);
+  } catch {
+    return false;
+  }
+}
+
+export function isV15Plus(c: Pick<RubrixContract, "version">): boolean {
+  try {
+    return isAtLeast(c.version, V1_5);
   } catch {
     return false;
   }

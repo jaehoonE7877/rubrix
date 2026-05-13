@@ -142,6 +142,14 @@ export interface RubrixContract {
   drift_policy?: DriftPolicy;
   accepted_drift_history?: AcceptedDriftEntry[];
   lock_history?: LockHistoryEntry[];
+  goal?: GoalArtifact;
+}
+
+export interface GoalArtifact {
+  condition: string;
+  max_chars: 4000;
+  suggested_condition?: string;
+  derived_from_contract_hash?: string;
 }
 
 let cachedValidator: ValidateFunction | null = null;
