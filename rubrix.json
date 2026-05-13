@@ -44,8 +44,8 @@
         "verify": "vitest cli/tests/goal.test.ts"
       },
       {
-        "id": "schema_goal_field_additive_fail_open",
-        "description": "`cli/schemas/rubrix.schema.json` adds top-level `goal` as an optional object with `required:['condition','max_chars']` and `additionalProperties:false`. `condition` is a string of length 1..4000; `max_chars` is the integer constant 4000; `suggested_condition` is an optional ≤4000-char string; `derived_from_contract_hash` is an optional /^[a-f0-9]{64}$/ string. Top-level keeps no `additionalProperties:false`, so a v1.4-installed CLI reading a v1.5 contract with `goal` set still validates clean (fail-open invariant — same pattern that v1.3 dogfood relied on). Adding `goal` does not require any new state-conditional clause.",
+        "id": "schema_goal_field_strict_addition",
+        "description": "`cli/schemas/rubrix.schema.json` adds top-level `goal` as an optional object with `required:['condition','max_chars']` and `additionalProperties:false`. `condition` is a string of length 1..4000; `max_chars` is the integer constant 4000; `suggested_condition` is an optional ≤4000-char string; `derived_from_contract_hash` is an optional /^[a-f0-9]{64}$/ string. Top-level retains `additionalProperties:false` (inherited from v1.0), so a v1.4-installed CLI reading a v1.5 contract with `goal` REJECTS — v1.5 establishes an upgrade boundary. Adding `goal` does not require any new state-conditional clause. The schema must validate goal-bearing contracts and reject malformed ones across the eight test cases in `goal-schema.test.ts`.",
         "weight": 0.12,
         "floor": 0.8,
         "axis": "security",
@@ -100,12 +100,12 @@
         "verify": "node cli/bin/rubrix.js state get rubrix.json"
       },
       {
-        "id": "installed_plugin_compat_fail_open",
-        "description": "An installed v1.4.2 plugin CLI reading the v1.5.0 root rubrix.json validates exit 0 (the `goal` artifact branch and any v1.5 surface stay additive — top-level has no `additionalProperties:false`, the schema's clauses don't gate on isV15Plus, and pre-v1.5 CLIs ignore the `goal` field). Verified by `node ~/.claude/plugins/cache/rubrix/rubrix/1.4.2/cli/bin/rubrix.js validate rubrix.json` exit 0.",
+        "id": "installed_plugin_upgrade_boundary_documented",
+        "description": "v1.5 establishes an upgrade boundary: the root schema retains `additionalProperties:false`, so v1.4-installed CLIs reading v1.5 contracts (with or without `goal`) will reject any top-level field they do not recognize. PR #1's 5-doc set must mention this upgrade requirement at least once. While this PR cannot test the negative case end-to-end (the cached v1.4.x plugin in marketplace cache still carries the pre-tsx-fix bug from PR #0), the criterion verifies the documentation is consistent with the schema's actual strictness.",
         "weight": 0.06,
         "floor": 0.7,
         "axis": "security",
-        "verify": "node ~/.claude/plugins/cache/rubrix/rubrix/1.4.2/cli/bin/rubrix.js validate rubrix.json"
+        "verify": "rg -n 'upgrade boundary|v1.5\\+|v1.5 introduces' README.md CLAUDE.md PLUGIN-README.md VERIFICATION.md docs/extensible-plan.md"
       },
       {
         "id": "tests_full_suite_no_regression_v15",
@@ -150,8 +150,8 @@
       },
       {
         "id": "row-schema-goal-additive",
-        "criterion": "schema_goal_field_additive_fail_open",
-        "evidence_required": "goal-schema.test.ts asserts (a) v1.5.0 contract without goal validates; (b) v1.5.0 contract with well-formed goal validates; (c) max_chars != 4000 rejected; (d) condition > 4000 rejected; (e) empty condition rejected; (f) goal missing required max_chars rejected; (g) goal with unknown property rejected (additionalProperties:false); (h) malformed derived_from_contract_hash rejected; (i) v1.4.0 contract carrying a goal still validates (fail-open invariant).",
+        "criterion": "schema_goal_field_strict_addition",
+        "evidence_required": "goal-schema.test.ts asserts (a) v1.5.0 contract without goal validates; (b) v1.5.0 contract with well-formed goal validates; (c) max_chars != 4000 rejected; (d) condition > 4000 rejected; (e) empty condition rejected; (f) goal missing required max_chars rejected; (g) goal with unknown property rejected (additionalProperties:false on the goal sub-schema); (h) malformed derived_from_contract_hash rejected. The test that previously claimed v1.4+goal fail-open is removed — top-level `additionalProperties:false` makes that invariant false; v1.5 introduces an upgrade boundary.",
         "verify": "vitest cli/tests/goal-schema.test.ts"
       },
       {
@@ -192,9 +192,9 @@
       },
       {
         "id": "row-installed-plugin-compat",
-        "criterion": "installed_plugin_compat_fail_open",
-        "evidence_required": "After dogfood reaches PlanLocked, run `node ~/.claude/plugins/cache/rubrix/rubrix/1.4.2/cli/bin/rubrix.js validate rubrix.json` (installed v1.4.2 plugin CLI). Exit 0 with stdout matching `rubrix.json: valid`. `cmp` byte-equality of rubrix.json before and after both worktree + installed CLI validate runs.",
-        "verify": "node ~/.claude/plugins/cache/rubrix/rubrix/1.4.2/cli/bin/rubrix.js validate rubrix.json"
+        "criterion": "installed_plugin_upgrade_boundary_documented",
+        "evidence_required": "`rg -n 'upgrade boundary|v1\\.5\\+|v1\\.5 introduces' README.md CLAUDE.md PLUGIN-README.md VERIFICATION.md docs/extensible-plan.md` returns ≥1 hit. The schema's actual strictness (top-level `additionalProperties:false` since v1.0) and the practical implication (v1.4 CLI rejects v1.5 contracts containing `goal`) are consistent with what the 5-doc set tells users.",
+        "verify": "rg -n 'upgrade boundary|v1\\.5\\+|v1\\.5 introduces' README.md CLAUDE.md PLUGIN-README.md VERIFICATION.md docs/extensible-plan.md"
       },
       {
         "id": "row-tests-suite",
@@ -222,8 +222,20 @@
   "plan": {
     "steps": [
       {
+        "id": "step-verify-pr2-shipped-coverage",
+        "action": "Regression-check that the PR #2 (squashed merge, /rubrix:goal skill + CLI) artifacts already satisfy the goal-skill / CLI / long-path / forbidden-pattern / undefined-hash criteria. Run `vitest cli/tests/goal.test.ts` and confirm all 23 cases pass (synthesizeCondition + goalPrintCommand + goalValidateCommand + pathological-cases + checkCondition unit). No code changes in this PR for these — they are inherited from main.",
+        "produces": "vitest goal.test.ts → 23/23 passing on the PR #3 branch",
+        "covers": [
+          "row-goal-skill-synthesizes",
+          "row-goal-cli-round-trip",
+          "row-long-path-safety",
+          "row-forbidden-pattern-word-boundary",
+          "row-hash-stable-undefined"
+        ]
+      },
+      {
         "id": "step-add-schema-goal-field",
-        "action": "Edit cli/schemas/rubrix.schema.json: append a `goal` property to the top-level `properties` block (after `lock_history`) as an object with `required:['condition','max_chars']`, `additionalProperties:false`, and the four sub-properties described in the criterion (condition string 1..4000, max_chars integer const 4000, optional suggested_condition string ≤4000, optional derived_from_contract_hash matching /^[a-f0-9]{64}$/). Do NOT add a new allOf branch — top-level stays free of additionalProperties:false so v1.4 CLIs accept it.",
+        "action": "Edit cli/schemas/rubrix.schema.json: append a `goal` property to the top-level `properties` block (after `lock_history`) as an object with `required:['condition','max_chars']`, `additionalProperties:false`, and the four sub-properties described in the criterion (condition string 1..4000, max_chars integer const 4000, optional suggested_condition string ≤4000, optional derived_from_contract_hash matching /^[a-f0-9]{64}$/). Note: top-level schema retains `additionalProperties:false`, so a v1.4-installed CLI reading a v1.5 contract with `goal` will REJECT — not fail-open. v1.5 introduces an upgrade boundary; users on v1.4 must update their installed plugin before reading v1.5 contracts.",
         "produces": "cli/schemas/rubrix.schema.json goal property addition",
         "covers": [
           "row-schema-goal-additive"
@@ -316,8 +328,8 @@
     "source": "user",
     "locked_at": "2026-05-13T07:50:00Z",
     "approved_by": "rubrix-dogfood-v1.5.0-pr3",
-    "derived_from_brief_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "derived_from_policy_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "derived_from_brief_hash": "60183331766960f394b4c145f02fae57bcc78ad107cf57bb1ab2eba890476e71",
+    "derived_from_policy_hash": "3919fefed42bdfb9269d3eaf195ef0dae6d5d456085d859598a535608f37ca58",
     "stage1_required": true,
     "stage3_threshold": 0.6,
     "stage3_axes": [

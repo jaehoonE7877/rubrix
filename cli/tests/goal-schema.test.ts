@@ -84,9 +84,11 @@ describe("v1.5 goal schema (additive surface)", () => {
     expect(validateContract(c).ok).toBe(false);
   });
 
-  it("v1.4.0 contract carrying a goal still validates (fail-open: pre-v1.5 CLIs ignore unknown top-level)", () => {
-    // Top-level has no additionalProperties:false in the schema, so older CLIs reading a v1.5 file
-    // with `goal` accept it. This is the dogfood-safety invariant.
+  it("v1.4 contract carrying a goal validates against the v1.5 schema (the field is known to it)", () => {
+    // This documents that the same schema (the one shipped with v1.5+) accepts a `goal` field
+    // regardless of declared version. It does NOT prove cross-CLI compatibility — a v1.4-installed
+    // CLI running its OWN (older) schema will reject a `goal` field via top-level
+    // additionalProperties:false. v1.5 is an upgrade boundary, not a fail-open extension.
     const c = baseV14Passed();
     c.version = "1.4.0";
     (c as unknown as Record<string, unknown>).goal = {
