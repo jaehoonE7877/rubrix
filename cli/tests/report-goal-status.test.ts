@@ -49,15 +49,17 @@ describe("buildReport /goal status section", () => {
     expect(md).toContain("- overall_pass: false");
   });
 
-  it("truncates a very long condition with a trailing ellipsis", () => {
+  it("truncates a very long condition to exactly the first 200 chars + ellipsis", () => {
     const c = lockedScoring("Scoring");
-    const longCondition = "rubrix gate ".repeat(50) + "x".repeat(2000); // well past 200 chars
+    const longCondition = "rubrix gate " + "X".repeat(2000); // well past 200 chars
     c.goal = { condition: longCondition, max_chars: 4000 };
     const path = tempContractFile(c);
     const md = buildReport(path);
     expect(md).toContain("## /goal status");
-    // Only the truncated leading slice (200 chars) plus the ellipsis should appear.
-    expect(md).toContain("…");
+    // Extract the rendered `- condition: ...` line and assert it equals the first 200 chars + …
+    const expectedLine = `- condition: ${longCondition.slice(0, 200)}…`;
+    expect(md).toContain(expectedLine);
+    // And the full condition string must not appear in full.
     expect(md).not.toContain(longCondition);
   });
 
