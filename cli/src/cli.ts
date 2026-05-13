@@ -9,6 +9,7 @@ import { briefGetCommand, briefInitCommand } from "./commands/brief.ts";
 import { scoreClarityCommand } from "./commands/score-clarity.ts";
 import { scoreCommand } from "./commands/score.ts";
 import { driftCommand } from "./commands/drift.ts";
+import { goalPrintCommand, goalValidateCommand } from "./commands/goal.ts";
 import pkg from "../package.json" with { type: "json" };
 
 const program = new Command();
@@ -108,6 +109,24 @@ program
   .option("--json", "emit JSON output")
   .action((path: string, opts: { json?: boolean }) => {
     process.exit(driftCommand({ path, json: opts.json }));
+  });
+
+const goalCmd = program
+  .command("goal")
+  .description("v1.5+: synthesize or validate the /goal termination condition for Claude Code's built-in /goal command (PlanLocked / Scoring / Failed only)");
+goalCmd
+  .command("print <path>")
+  .description("Synthesize a transcript-evaluable termination condition from rubrix.json (≤4000 chars; default human-readable, --json for full metadata)")
+  .option("--json", "emit JSON output with condition + length + criteria counts + derived_from_contract_hash")
+  .action((path: string, opts: { json?: boolean }) => {
+    process.exit(goalPrintCommand({ path, json: opts.json }));
+  });
+goalCmd
+  .command("validate <path> <condition>")
+  .description("Check that a user-supplied condition string is evaluator-friendly (≤4000 chars, contains a transcript-visible verdict marker, no filesystem-read directives)")
+  .option("--json", "emit JSON output")
+  .action((path: string, condition: string, opts: { json?: boolean }) => {
+    process.exit(goalValidateCommand({ path, condition, json: opts.json }));
   });
 
 program
