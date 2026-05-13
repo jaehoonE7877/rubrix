@@ -9,10 +9,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import Ajv2020, { type ValidateFunction, type ErrorObject } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import type { Locks, State } from "./state.ts";
+import rubrixSchema from "../../schemas/rubrix.schema.json" with { type: "json" };
 
 export type Axis = "security" | "data" | "correctness" | "ux" | "perf";
 export type AxisDepth = "light" | "standard" | "deep";
@@ -144,17 +144,13 @@ export interface RubrixContract {
   lock_history?: LockHistoryEntry[];
 }
 
-const here = dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = resolve(here, "../../schemas/rubrix.schema.json");
-
 let cachedValidator: ValidateFunction | null = null;
 
 export function getValidator(): ValidateFunction {
   if (cachedValidator) return cachedValidator;
-  const schema = JSON.parse(readFileSync(SCHEMA_PATH, "utf8")) as object;
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
-  cachedValidator = ajv.compile(schema);
+  cachedValidator = ajv.compile(rubrixSchema as object);
   return cachedValidator;
 }
 

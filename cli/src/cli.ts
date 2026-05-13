@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { validateCommand } from "./commands/validate.ts";
 import { gateCommand } from "./commands/gate.ts";
@@ -12,9 +9,7 @@ import { briefGetCommand, briefInitCommand } from "./commands/brief.ts";
 import { scoreClarityCommand } from "./commands/score-clarity.ts";
 import { scoreCommand } from "./commands/score.ts";
 import { driftCommand } from "./commands/drift.ts";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(resolve(here, "../package.json"), "utf8")) as { version: string };
+import pkg from "../package.json" with { type: "json" };
 
 const program = new Command();
 program.name("rubrix").description("Rubrix CLI: validate, gate, report, state, lock, hook").version(pkg.version);
