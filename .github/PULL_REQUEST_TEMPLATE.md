@@ -30,3 +30,4 @@ npm --prefix cli test
 
 - [ ] 5문서 정책을 위반하지 않았다 (README · PLUGIN-README · CLAUDE · VERIFICATION · docs/extensible-plan).
 - [ ] schema · CLI · hook을 변경했다면 같은 PR에서 검증 경로(test / example)도 갱신했다.
+- [ ] 연관된 Linear 티켓이 있다면 description에 작업 시작 프롬프트(Claude Code에 복붙 가능한 fenced block)가 포함되어 있다.

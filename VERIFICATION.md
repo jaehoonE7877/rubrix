@@ -1,4 +1,4 @@
-# Rubrix v1.0.1 검증 체크리스트
+# Rubrix v1.4.2 검증 체크리스트
 
 플러그인 루트에서 실행합니다. **필수**: Node.js >= 18.17
 
@@ -14,15 +14,15 @@ find .claude-plugin cli/{schemas,bin,src,tests} hooks scripts skills agents exam
 
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
 - `cli/schemas/{rubrix,evaluator-result}.schema.json`
-- `cli/bin/rubrix.js`, `cli/src/cli.ts`
-- `cli/src/core/{state,contract,integrity}.ts`
-- `cli/src/commands/{validate,gate,report,state,lock,hook}.ts`
+- `cli/bin/rubrix.js`, `cli/src/cli.ts`, `cli/dist/cli.js` (v1.4.2+ self-contained bundle)
+- `cli/src/core/{state,contract,integrity,version,cascade,drift}.ts`
+- `cli/src/commands/{validate,gate,report,state,lock,hook,brief,score-clarity,score,drift}.ts`
 - `cli/src/hooks/handlers.ts`
-- `cli/tests/*.test.ts` (13개 suite)
+- `cli/tests/**/*.test.ts` (60 suite, 591 tests)
 - `hooks/hooks.json`
 - `scripts/*.sh` (7개, 모두 `chmod +x`)
-- `skills/{rubric,matrix,plan,score}/SKILL.md`
-- `agents/{rubric-architect,matrix-auditor,plan-critic,evidence-finder,output-judge}.md`
+- `skills/{brief,rubric,matrix,plan,score}/SKILL.md`
+- `agents/{rubric-architect,matrix-auditor,plan-critic,evidence-finder,output-judge,brief-interviewer,clarity-scorer,mechanical-checker,semantic-judge,consensus-panel,drift-detector}.md`
 - `examples/{self-eval,ios-refactor}/{rubrix.json,artifact.md,expected-report.md}`
 
 ## 2. 플러그인 manifest 검증
@@ -32,13 +32,25 @@ claude plugin validate .
 # 기대: ✔ Validation passed
 ```
 
-## 3. CLI 타입체크 + 테스트
+## 3. CLI 빌드 + 타입체크 + 테스트
 
 ```bash
 cd cli
 npm install
+npm run build       # esbuild → cli/dist/cli.js (self-contained bundle, ~524KB)
 npm run typecheck   # exit 0, 타입 오류 없음
-npm test            # vitest 110개 통과
+npm test            # vitest 591개 통과
+```
+
+v1.4.2+: marketplace 캐시본은 `npm install` 없이 동작해야 합니다. 이를 검증하려면 `cli/node_modules`를 삭제한 뒤 7개 hook을 stdin '{}'로 실행해 전부 exit 0인지 확인합니다.
+
+```bash
+rm -rf cli/node_modules
+for h in SessionStart UserPromptExpansion PreToolUse PostToolUse PostToolBatch SubagentStop Stop; do
+  echo '{}' | node cli/bin/rubrix.js hook $h > /dev/null
+  echo "$h exit=$?"
+done
+# 7개 모두 exit=0 기대
 ```
 
 ## 4. 예제 smoke test

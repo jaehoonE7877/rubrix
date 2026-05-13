@@ -2,15 +2,15 @@
 
 ## 역할
 
-이 저장소는 **Rubrix v1.0.1** — Claude Code용 evaluation-contract-first plugin 이다. 모호한 요청을 `rubrix.json` 중심의 평가 계약으로 구조화하고, `hooks` + `CLI` + `skills` + `subagents`로 agent 작업을 검증 가능한 lifecycle에 가둔다.
+이 저장소는 **Rubrix v1.4.2** — Claude Code용 evaluation-contract-first plugin 이다. 모호한 요청을 `rubrix.json` 중심의 평가 계약으로 구조화하고, `hooks` + `CLI` + `skills` + `subagents`로 agent 작업을 검증 가능한 lifecycle에 가둔다.
 
 주요 기준 문서는 [`PLUGIN-README.md`](PLUGIN-README.md) (사용자 가이드)와 [`docs/extensible-plan.md`](docs/extensible-plan.md) (v1.0 surface 설계 기록 + v1.1+ 확장 계획). 라이프사이클 상태/락 불변식의 SSoT는 [`cli/schemas/rubrix.schema.json`](cli/schemas/rubrix.schema.json)이다.
 
-## 현재 상태 (v1.0.1)
+## 현재 상태 (v1.4.2)
 
-`.claude-plugin/`, `skills/`, `agents/`, `hooks/`, `cli/`, `scripts/`, `examples/` 모든 표면이 구현 완료. `claude plugin validate .` 통과, `cli/tests/` 전체 통과.
+`.claude-plugin/`, `skills/`, `agents/`, `hooks/`, `cli/`, `scripts/`, `examples/` 모든 표면이 구현 완료. `claude plugin validate .` 통과, `cli/tests/` 591개 전체 통과. `cli/dist/cli.js`로 self-contained ESM bundle 배포 (marketplace 캐시본은 `npm install`을 돌리지 않으므로 모든 runtime dep가 bundle에 인라인되어야 hook이 동작).
 
-새 기능을 더하기 전에 현재 구현된 표면을 깨지 않는지부터 확인한다. v1.1+ 기능은 `docs/extensible-plan.md`의 "Planned" 섹션 참고.
+새 기능을 더하기 전에 현재 구현된 표면을 깨지 않는지부터 확인한다. v1.5+ 기능은 `docs/extensible-plan.md`의 "v1.1+ 확장 계획" 섹션 참고.
 
 ## 핵심 방향
 
@@ -50,14 +50,22 @@ Rubrix는 문서화 전용 runtime이 아니라 Claude Code plugin/harness로 �
 
 ## 계획된 표면
 
-v1.0.1에서 구현된 표면 (변경 시 기존 동작 유지 확인 필수):
+v1.4.2까지 구현된 표면 (변경 시 기존 동작 유지 확인 필수):
 
-- Skills (plugin namespace): `/rubrix:rubric`, `/rubrix:matrix`, `/rubrix:plan`, `/rubrix:score`
-- CLI: `rubrix validate | gate | report | state | lock | hook`
+- Skills (plugin namespace): `/rubrix:brief`, `/rubrix:rubric`, `/rubrix:matrix`, `/rubrix:plan`, `/rubrix:score`
+- CLI: `rubrix validate | gate | report | state | lock | hook | brief | score-clarity | score | drift`
 - Hooks (Claude Code spec — 3-level nested config): `SessionStart`, `UserPromptExpansion`, `PreToolUse`, `PostToolUse`, `PostToolBatch`, `SubagentStop`, `Stop`
 - State machine (10 states): `IntentDrafted → RubricDrafted → RubricLocked → MatrixDrafted → MatrixLocked → PlanDrafted → PlanLocked → Scoring → Passed | Failed; Failed → PlanDrafted (recovery loop)`
 - Hook contract: PreToolUse는 `hookSpecificOutput.permissionDecision` 사용 (exit 0); Stop은 exit-code path (block 시 exit 2 + stderr).
 - Lock semantic integrity: `rubrix lock matrix/plan`은 cross-artifact 참조 검증 + 중복 id 검사 통과해야 진행 (`cli/src/core/integrity.ts`).
+- Packaging (v1.4.2+): `cli/dist/cli.js` self-contained ESM bundle (esbuild). `cli/bin/rubrix.js`가 dist를 직접 import — marketplace 캐시본이 `npm install` 없이도 모든 hook 동작.
+
+v1.5+에서 계획된 표면 (구현 전):
+
+- `/rubrix:goal` skill + `rubrix goal print|validate` CLI: Claude Code `/goal` 명령(2026-05-11 v2.1.139)과 통합. PlanLocked 이후 `rubrix.json`을 transcript-evaluable termination condition으로 합성해 `/goal`이 매 turn 종료마다 `gate --json`의 `overall_pass`+`state`를 검증. Failed→PlanDrafted 회복 루프 자동화.
+- `contract.goal?` schema field (optional, v1.5+).
+- `handleStop`의 Failed reason에 `/goal` active 시 안내 한 줄.
+- `report`의 `## /goal status` 섹션 (evaluator가 transcript에서 직접 읽음).
 
 ## 구현 원칙
 
@@ -124,7 +132,7 @@ v1.0.1에서 구현된 표면 (변경 시 기존 동작 유지 확인 필수):
 - 문서는 짧고 실행 가능한 정보 중심으로 쓴다.
 - 넓은 rewrite보다 필요한 파일만 좁게 수정한다.
 - code identifier, command, path는 원문 그대로 유지한다.
-- 정식 release 이전에는 `README.md`, `PLUGIN-README.md`, `CLAUDE.md`, `VERIFICATION.md`, `docs/extensible-plan.md` 5개 외에는 신규 user-facing 문서를 만들지 않는다. 외부 사용자가 harness를 처음 만났을 때 읽어야 할 문서량이 늘어나지 않도록 한다.
+- 정식 release 이전에는 `README.md`, `PLUGIN-README.md`, `CLAUDE.md`, `VERIFICATION.md`, `docs/extensible-plan.md` 5개 외에는 신규 user-facing 문서를 만들지 않는다. 외부 사용자가 harness를 처음 만났을 때 읽어야 할 문서량이 늘어나지 않도록 한다. Linear template / Notion 페이지는 외부 SaaS UI 자산이므로 5문서 정책 대상 외다.
 - release 부산물(CHANGELOG, release notes, codex review summary 등)은 git tag 메시지 또는 GitHub Release notes로만 보관하고 repo에 commit하지 않는다.
 - repo에 commit 하는 것은 (a) SSoT 파일 (`rubrix.json`, `cli/schemas/*.schema.json`, `plan.json`, `requirements.md`, `examples/<name>/{rubrix.json,artifact.md,expected-report.md}`) 과 (b) in-repo test 자산 (`cli/tests/`, `examples/<name>/expected-report.md`) 만 허용한다. per-run evidence(transcript, hook events, run-specific rubrix.json contracts, codex review markdown)는 repo에 commit하지 않고 GitHub Release asset(`evidence-bundle.tar.gz`)으로만 첨부한다 (annotated tag 메시지에 SHA-256 박제). 원격 main은 항상 production 급으로 유지한다.
 
