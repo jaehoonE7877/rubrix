@@ -9,6 +9,9 @@ Icon
 node_modules/
 dist/
 build/
+# Exception: cli/dist/ is shipped as the runtime artifact (PR #0 v1.4.2).
+!cli/dist/
+!cli/dist/**
 *.tgz
 *.log
 npm-debug.log*
