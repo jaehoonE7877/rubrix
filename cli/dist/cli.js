@@ -14174,30 +14174,42 @@ function goalValidateCommand(opts) {
 function synthesizeCondition(c, path) {
   const crit = c.rubric?.criteria ?? [];
   const total = crit.length;
-  const hash = createHash4("sha256").update(canonicalize({ rubric: c.rubric, matrix: c.matrix, plan: c.plan })).digest("hex");
+  const hash = createHash4("sha256").update(canonicalize({ rubric: c.rubric ?? null, matrix: c.matrix ?? null, plan: c.plan ?? null })).digest("hex");
   const sorted = [...crit].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
   const floorLine = (x) => `\`${x.id}>=${x.floor ?? 0}\``;
   const header = `Run \`node cli/bin/rubrix.js gate ${path} --json\` and check that the JSON output has \`overall_pass: true\` and \`state: "Passed"\`.`;
   const tail = ` If state is \`Failed\`, run \`/rubrix:plan\` with "revise the plan now" then \`/rubrix:score\`. If overall_pass is false but state is \`Scoring\`, run \`/rubrix:score\` first.`;
-  let condition = "";
-  let included = total;
-  while (included >= 0) {
-    const taken = sorted.slice(0, included);
-    const more = total - included;
+  if (header.length + tail.length > MAX_CONDITION_CHARS) {
+    const markersFirst = `Verify the JSON output of \`rubrix gate <path> --json\` shows \`overall_pass: true\` and \`state: "Passed"\`. Contract path: ${path}`;
+    const condition2 = markersFirst.length > MAX_CONDITION_CHARS ? markersFirst.slice(0, MAX_CONDITION_CHARS) : markersFirst;
+    return {
+      condition: condition2,
+      length: condition2.length,
+      criteria_count: total,
+      criteria_included: 0,
+      suggested_for_state: c.state,
+      derived_from_contract_hash: hash
+    };
+  }
+  let condition = header + tail;
+  let included = 0;
+  for (let n = total; n >= 0; n--) {
+    const taken = sorted.slice(0, n);
+    const more = total - n;
     const floors = taken.length === 0 ? "" : ` Each of these per-criterion floors must be met: ${taken.map(floorLine).join(", ")}.`;
     const moreNote = more > 0 ? ` (+${more} more criteria \u2014 see rubric.)` : "";
-    condition = header + floors + moreNote + tail;
-    if (condition.length <= MAX_CONDITION_CHARS) break;
-    included--;
-  }
-  if (condition.length > MAX_CONDITION_CHARS) {
-    condition = condition.slice(0, MAX_CONDITION_CHARS);
+    const candidate = header + floors + moreNote + tail;
+    if (candidate.length <= MAX_CONDITION_CHARS) {
+      condition = candidate;
+      included = n;
+      break;
+    }
   }
   return {
     condition,
     length: condition.length,
     criteria_count: total,
-    criteria_included: included < 0 ? 0 : included,
+    criteria_included: included,
     suggested_for_state: c.state,
     derived_from_contract_hash: hash
   };

@@ -337,4 +337,64 @@ describe("checkCondition (unit)", () => {
     expect(issues.some((i) => i.includes("4000 character cap"))).toBe(true);
     expect(issues.some((i) => i.includes("filesystem read"))).toBe(true);
   });
+
+  it("does not match 'concatenate rubrix.json' as a forbidden cat command (no false positive on word boundary)", () => {
+    // The forbidden /\bcat\s+rubrix\.json/i pattern uses \b to avoid matching mid-word.
+    // "concatenate rubrix.json" must remain valid because "cat" inside "concatenate" is not a word boundary match.
+    const issues = checkCondition(
+      "Verify that we did not concatenate rubrix.json output with stdout; overall_pass must be true.",
+    );
+    expect(issues.some((i) => i.includes("filesystem read"))).toBe(false);
+  });
+});
+
+describe("synthesizeCondition pathological cases", () => {
+  function makeContract(criteria: Array<{ id: string; weight: number; floor: number }>) {
+    return {
+      version: "0.1.0",
+      intent: { summary: "test" },
+      rubric: {
+        threshold: 0.8,
+        criteria: criteria.map((c) => ({ id: c.id, description: "x", weight: c.weight, floor: c.floor })),
+      },
+      matrix: { rows: criteria.map((c) => ({ id: `m-${c.id}`, criterion: c.id, evidence_required: "x" })) },
+      plan: { steps: [{ id: "s1", action: "do thing", covers: criteria.map((c) => `m-${c.id}`) }] },
+      state: "PlanLocked",
+      locks: { rubric: true, matrix: true, plan: true },
+    } as unknown as Parameters<typeof synthesizeCondition>[0];
+  }
+
+  it("preserves verdict markers even when the path is so long that header+tail exceeds 4000 chars", () => {
+    const c = makeContract([{ id: "c1", weight: 0.5, floor: 0.7 }]);
+    const extremelyLongPath = "x".repeat(4500) + ".json";
+    const result = synthesizeCondition(c, extremelyLongPath);
+    expect(result.length).toBeLessThanOrEqual(4000);
+    // The whole point of the pathological-path branch: verdict markers must survive
+    // because the small-fast /goal evaluator looks for them in the transcript.
+    expect(result.condition).toContain("overall_pass: true");
+    expect(result.condition).toContain('state: "Passed"');
+    expect(result.criteria_included).toBe(0);
+  });
+
+  it("produces deterministic hash when artifacts are undefined (not just absent JSON keys)", () => {
+    // canonicalize() silently drops undefined-valued keys via JSON.stringify;
+    // synthesizeCondition normalizes undefined → null so the canonical input is stable.
+    const a = synthesizeCondition(
+      { version: "0.1.0", intent: { summary: "x" }, state: "PlanLocked" } as unknown as Parameters<typeof synthesizeCondition>[0],
+      "rubrix.json",
+    );
+    const b = synthesizeCondition(
+      {
+        version: "0.1.0",
+        intent: { summary: "x" },
+        state: "PlanLocked",
+        rubric: undefined,
+        matrix: undefined,
+        plan: undefined,
+      } as unknown as Parameters<typeof synthesizeCondition>[0],
+      "rubrix.json",
+    );
+    expect(a.derived_from_contract_hash).toBe(b.derived_from_contract_hash);
+    expect(a.derived_from_contract_hash).toMatch(/^[a-f0-9]{64}$/);
+  });
 });
