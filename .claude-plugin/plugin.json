@@ -1,6 +1,6 @@
 {
   "name": "rubrix",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Evaluation-contract-first harness for Claude Code agents. rubrix.json drives the lifecycle; hooks, CLI, skills, and subagents enforce it.",
   "author": {
     "name": "Jaehoon Seo"
@@ -18,10 +18,14 @@
   "agents": [
     "./agents/brief-interviewer.md",
     "./agents/clarity-scorer.md",
+    "./agents/consensus-panel.md",
+    "./agents/drift-detector.md",
     "./agents/evidence-finder.md",
     "./agents/matrix-auditor.md",
+    "./agents/mechanical-checker.md",
     "./agents/output-judge.md",
     "./agents/plan-critic.md",
-    "./agents/rubric-architect.md"
+    "./agents/rubric-architect.md",
+    "./agents/semantic-judge.md"
   ]
 }
