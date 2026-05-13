@@ -11745,10 +11745,29 @@ function buildReport(path, opts = {}) {
       lines.push("");
     }
   }
+  if (c.goal?.condition) {
+    appendGoalStatusSection(lines, c);
+  }
   if (opts.explain) {
     appendExplainSection(lines, c, opts.explain);
   }
   return lines.join("\n");
+}
+function appendGoalStatusSection(lines, c) {
+  const goal = c.goal;
+  lines.push(`## /goal status`);
+  lines.push("");
+  const truncated = goal.condition.length > 200 ? goal.condition.slice(0, 200) + "\u2026" : goal.condition;
+  lines.push(`- condition: ${truncated}`);
+  lines.push(`- contract state: ${c.state}`);
+  if (c.state === "Scoring" || c.state === "Passed" || c.state === "Failed") {
+    const g = evaluateGate(c);
+    lines.push(`- overall_pass: ${g.decision === "pass"}`);
+    lines.push(`- gate total: ${g.total.toFixed(3)} (threshold ${g.threshold})`);
+  } else {
+    lines.push(`- overall_pass: (not yet scored \u2014 gate runs from Scoring onward)`);
+  }
+  lines.push("");
 }
 function appendExplainSection(lines, c, criterionId) {
   lines.push(`## explain: ${criterionId}`);
@@ -13500,7 +13519,11 @@ function handleStop(input) {
   try {
     const c = loadContract(path);
     if (c.state === "Failed") {
-      return { decision: "block", reason: "rubrix gate failed; iterate (revise plan and re-score) instead of stopping" };
+      const goalSuffix = c.goal?.condition ? " (a `/goal` is active \u2014 the next turn's evaluator will see `overall_pass: false` in the transcript and auto-trigger another iteration)" : "";
+      return {
+        decision: "block",
+        reason: `rubrix gate failed; iterate (revise plan and re-score) instead of stopping${goalSuffix}`
+      };
     }
     return {};
   } catch {

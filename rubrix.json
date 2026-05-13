@@ -318,12 +318,342 @@
       "forced": false
     }
   },
-  "state": "PlanLocked",
+  "state": "Passed",
   "locks": {
     "rubric": true,
     "matrix": true,
     "plan": true
   },
+  "scores": [
+    {
+      "criterion": "goal_skill_synthesizes_transcript_evaluable_condition",
+      "score": 0.95,
+      "confidence": 0.9,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        },
+        {
+          "evaluator_id": "semantic-judge",
+          "stage": 2
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        },
+        {
+          "stage": 2,
+          "score": 0.9,
+          "self_reported_confidence": 0.85,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "semantic-judge/1.0",
+          "latency_ms": 840
+        }
+      ],
+      "notes": "skills/goal/SKILL.md trigger clause names PlanLocked/Scoring/Failed; refuses pre-PlanLocked via the precondition step in the skill. goal.test.ts asserts state gate via 4 cases (PlanLocked/Scoring/Failed pass, IntentDrafted refused), weight-descending ordering, ≤4000 char cap, and (+K more — see rubrix.) tail when criteria do not fit. Skill never mutates rubrix.json — pure synthesis."
+    },
+    {
+      "criterion": "goal_cli_print_and_validate_round_trip",
+      "score": 0.95,
+      "confidence": 0.9,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        },
+        {
+          "evaluator_id": "semantic-judge",
+          "stage": 2
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        },
+        {
+          "stage": 2,
+          "score": 0.93,
+          "self_reported_confidence": 0.88,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "semantic-judge/1.0",
+          "latency_ms": 920
+        }
+      ],
+      "notes": "goal.test.ts: 8 print cases (state gate, --json full metadata, criteria_included, weight ordering, 4000-char trim, deterministic hash, hash changes on rubric mutation) + 7 validate cases (accept, empty, no keyword, cat rubrix.json, read the file, oversized, --json round-trip). All 23 cases pass."
+    },
+    {
+      "criterion": "schema_goal_field_strict_addition",
+      "score": 0.95,
+      "confidence": 0.9,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        },
+        {
+          "evaluator_id": "semantic-judge",
+          "stage": 2
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        },
+        {
+          "stage": 2,
+          "score": 0.92,
+          "self_reported_confidence": 0.87,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "semantic-judge/1.0",
+          "latency_ms": 890
+        }
+      ],
+      "notes": "goal-schema.test.ts: 9 cases — without-goal, with-goal, max_chars != 4000 rejected, condition > 4000 rejected, empty rejected, missing max_chars rejected, unknown property rejected (additionalProperties:false on the goal sub-schema), malformed hash rejected, v1.4+goal validates against the NEW schema (with documentation note that this does NOT prove cross-CLI compat — upgrade boundary, not fail-open)."
+    },
+    {
+      "criterion": "isv15plus_version_helper",
+      "score": 1,
+      "confidence": 0.95,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": "version-v15.test.ts: 12 cases covering 1.5.0/1.5.99/1.6.0/2.0.0/1.10.0 → true; 1.4.99/1.4.0/1.3.0/0.1.0/invalid/zero-padded → false; lower-bound helper regression check. All pass."
+    },
+    {
+      "criterion": "long_path_safety_in_synthesis",
+      "score": 0.95,
+      "confidence": 0.9,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        },
+        {
+          "evaluator_id": "semantic-judge",
+          "stage": 2
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        },
+        {
+          "stage": 2,
+          "score": 0.92,
+          "self_reported_confidence": 0.87,
+          "model": "claude-sonnet-4-6",
+          "model_version": "claude-sonnet-4-6@2026-04-01",
+          "prompt_version": "semantic-judge/1.0",
+          "latency_ms": 870
+        }
+      ],
+      "notes": "Caught by PR #2's codex review and fixed in commit cb45a29: pathological-cases test uses a 4500-char path and asserts result.length ≤ 4000 + condition contains 'overall_pass: true' + 'state: \"Passed\"'. Markers now lead the compact form, so any tail-side slice preserves them."
+    },
+    {
+      "criterion": "validate_forbidden_pattern_no_false_positive",
+      "score": 1,
+      "confidence": 0.95,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": "Forbidden patterns use \\b word boundaries: /\\bcat\\s+rubrix\\.json/i etc. Regression test asserts 'concatenate rubrix.json' yields zero filesystem-read issues while 'cat rubrix.json' is still rejected."
+    },
+    {
+      "criterion": "derived_from_contract_hash_stable_under_undefined",
+      "score": 1,
+      "confidence": 0.95,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": "Caught by PR #2's codex review: canonicalize({...}) silently dropped undefined-valued keys via JSON.stringify, breaking hash stability for contracts where artifacts were undefined vs absent. Fixed in commit cb45a29 by normalizing c.rubric ?? null etc. Test asserts hashes equal across both forms."
+    },
+    {
+      "criterion": "plugin_and_cli_version_bumped_to_v150",
+      "score": 1,
+      "confidence": 0.95,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": ".claude-plugin/plugin.json + cli/package.json + cli/package-lock.json all 1.5.0. claude plugin validate . exits 0. PLUGIN-README.md/VERIFICATION.md/CLAUDE.md/docs/extensible-plan.md surface claims updated. Historical 'v1.4.2부터' / 'v1.4.2+' references kept intact (feature-introduction context, not current version)."
+    },
+    {
+      "criterion": "dogfood_v15_root_planlocked",
+      "score": 0.95,
+      "confidence": 0.9,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": "rubrix.json walked through PlanLocked at PR #3 with clarity blocks on rubric/matrix/plan (forced=false) + evaluation_policy with real derived_from_brief_hash and derived_from_policy_hash + drift_policy. validate exit 0, state get PlanLocked. PR #4 advances to Scoring → Passed with this scores[] block."
+    },
+    {
+      "criterion": "installed_plugin_upgrade_boundary_documented",
+      "score": 0.9,
+      "confidence": 0.85,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": "PLUGIN-README.md L3, CLAUDE.md L11, docs/extensible-plan.md L5 all explicitly mention v1.5 as an upgrade boundary. Top-level schema retains `additionalProperties: false` (inherited since v1.0), so v1.4 CLIs reject v1.5 contracts with `goal`. PR #46 fix #1 reframed this from the original (incorrect) fail-open claim."
+    },
+    {
+      "criterion": "tests_full_suite_no_regression_v15",
+      "score": 1,
+      "confidence": 0.95,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": "After PR #4: 65 test files, 644 cases pass (baseline 614 + PR #3 +21 + PR #4 +9 stop-goal-reason/report-goal-status). Zero failed, zero skipped."
+    },
+    {
+      "criterion": "typecheck_clean_v15",
+      "score": 1,
+      "confidence": 0.95,
+      "evaluator": "rubrix-cascade",
+      "evaluators": [
+        {
+          "evaluator_id": "mechanical-checker",
+          "stage": 1
+        }
+      ],
+      "stage_history": [
+        {
+          "stage": 1,
+          "score": 1,
+          "self_reported_confidence": 1,
+          "model": "deterministic",
+          "model_version": "mechanical-checker/1.0",
+          "prompt_version": "mechanical-checker/1.0"
+        }
+      ],
+      "notes": "cd cli && npm run typecheck exits 0. GoalArtifact interface (max_chars: 4000 literal) + isV15Plus helper + handleStop goal-aware branch + buildReport appendGoalStatusSection all conform to strict tsconfig."
+    }
+  ],
   "evaluation_policy": {
     "source": "user",
     "locked_at": "2026-05-13T07:50:00Z",
@@ -352,5 +682,11 @@
     "locked_at": "2026-05-13T07:50:00Z",
     "approved_by": "rubrix-dogfood-v1.5.0-pr3",
     "source": "user"
+  },
+  "goal": {
+    "condition": "Run `node cli/bin/rubrix.js gate rubrix.json --json` and check that the JSON output has `overall_pass: true` and `state: \"Passed\"`. If state is `Failed`, run `/rubrix:plan` with \"revise the plan now\" then `/rubrix:score`. If overall_pass is false but state is `Scoring`, run `/rubrix:score` first.",
+    "max_chars": 4000,
+    "suggested_condition": "Run `node cli/bin/rubrix.js gate rubrix.json --json` and check that the JSON output has `overall_pass: true` and `state: \"Passed\"`. Each of these per-criterion floors must be met: `goal_skill_synthesizes_transcript_evaluable_condition>=0.8`, `goal_cli_print_and_validate_round_trip>=0.8`, `schema_goal_field_strict_addition>=0.8`, `dogfood_v15_root_planlocked>=0.7`, `long_path_safety_in_synthesis>=0.8`, `isv15plus_version_helper>=0.7`, `validate_forbidden_pattern_no_false_positive>=0.7`, `derived_from_contract_hash_stable_under_undefined>=0.7`, `plugin_and_cli_version_bumped_to_v150>=0.7`, `installed_plugin_upgrade_boundary_documented>=0.7`, `tests_full_suite_no_regression_v15>=0.7`, `typecheck_clean_v15>=0.7`. If state is `Failed`, run `/rubrix:plan` with \"revise the plan now\" then `/rubrix:score`. If overall_pass is false but state is `Scoring`, run `/rubrix:score` first.",
+    "derived_from_contract_hash": "b94ee72d9970041b2c1a3d309f279bc740bc90ccb5c7114a99956a302f67bab8"
   }
 }

@@ -113,10 +113,34 @@ export function buildReport(path: string, opts: { explain?: string } = {}): stri
       lines.push("");
     }
   }
+  if (c.goal?.condition) {
+    appendGoalStatusSection(lines, c);
+  }
   if (opts.explain) {
     appendExplainSection(lines, c, opts.explain);
   }
   return lines.join("\n");
+}
+
+function appendGoalStatusSection(lines: string[], c: RubrixContract): void {
+  const goal = c.goal!;
+  // The /goal evaluator scans the transcript every turn end and looks for the verdict markers
+  // it was handed when the user pasted `/goal <condition>`. Surfacing overall_pass + state here
+  // gives the small-fast evaluator a single, deterministic block to read instead of forcing it
+  // to splice fragments from the rest of the report.
+  lines.push(`## /goal status`);
+  lines.push("");
+  const truncated = goal.condition.length > 200 ? goal.condition.slice(0, 200) + "…" : goal.condition;
+  lines.push(`- condition: ${truncated}`);
+  lines.push(`- contract state: ${c.state}`);
+  if (c.state === "Scoring" || c.state === "Passed" || c.state === "Failed") {
+    const g = evaluateGate(c);
+    lines.push(`- overall_pass: ${g.decision === "pass"}`);
+    lines.push(`- gate total: ${g.total.toFixed(3)} (threshold ${g.threshold})`);
+  } else {
+    lines.push(`- overall_pass: (not yet scored — gate runs from Scoring onward)`);
+  }
+  lines.push("");
 }
 
 function appendExplainSection(lines: string[], c: RubrixContract, criterionId: string): void {

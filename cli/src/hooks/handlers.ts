@@ -665,7 +665,13 @@ export function handleStop(input: HookInput): HookDecision {
   try {
     const c = loadContract(path);
     if (c.state === "Failed") {
-      return { decision: "block", reason: "rubrix gate failed; iterate (revise plan and re-score) instead of stopping" };
+      const goalSuffix = c.goal?.condition
+        ? " (a `/goal` is active — the next turn's evaluator will see `overall_pass: false` in the transcript and auto-trigger another iteration)"
+        : "";
+      return {
+        decision: "block",
+        reason: `rubrix gate failed; iterate (revise plan and re-score) instead of stopping${goalSuffix}`,
+      };
     }
     return {};
   } catch {
