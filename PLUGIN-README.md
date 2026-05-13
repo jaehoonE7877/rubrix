@@ -111,7 +111,7 @@ Claude Code 2.1.139 (2026-05-11)에서 도입된 `/goal` 명령은 세션 1회�
 v1.5 시리즈는 이 `/goal`을 Rubrix의 **PlanLocked 이후 lifecycle**에 통합합니다:
 
 - `/rubrix:goal` skill: `rubrix.json`에서 transcript-evaluable termination condition을 합성. PlanLocked / Scoring / Failed 상태에서만 트리거.
-- `rubrix goal print` CLI: `rubric.criteria[].id`와 `floor`를 `gate --json`의 `overall_pass`+`state` 검증 문장으로 변환. 4,000자 cap 자동.
+- `rubrix goal print|validate` CLI: `print`는 `rubric.criteria[].id`와 `floor`를 `gate --json`의 `overall_pass`+`state` 검증 문장으로 변환(4,000자 cap 자동). `validate`는 사용자가 손으로 다듬은 condition이 evaluator-friendly한지(필수 키워드 포함, file-read 지시어 부재) 검사.
 - `handleStop` goal-aware reason: state=Failed block reason에 "`/goal` active 시 다음 turn에 자동 plan revise" 한 줄.
 - `report`의 `## /goal status` 섹션: evaluator가 transcript에서 직접 읽도록 contract state + last gate result를 노출.
 

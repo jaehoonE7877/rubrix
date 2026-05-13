@@ -229,7 +229,7 @@ Rubrix는 이를 **PlanLocked 이후 lifecycle**(rubric/matrix/plan은 사람이
 
 ### v1.6 — Event log & run history (계획, 이전 v1.5)
 
-Append-only event log + read-only history projection. 이전 v1.5 로드맵 본문 그대로. Linear RUB-13 트래킹.
+Append-only event log + read-only history projection. 본 PR 시점에는 한 줄 placeholder만 두고 본문은 별도 PR/Notion 페이지에서 v1.6 시점에 작성한다. 기존 Linear RUB-13 ticket은 본 v1.5 시리즈 머지 직후 label을 `v1.6`으로 변경하면서 description도 새 template으로 마이그레이션한다.
 
 ### v2.0 — Convergence loop & breaking schema cleanup (계획)
 
