@@ -1,4 +1,4 @@
-# Rubrix — Claude Code 플러그인 사용 가이드 (v1.1.0)
+# Rubrix — Claude Code 플러그인 사용 가이드 (v1.4.2)
 
 작업 전에 평가 기준을 정하고, 기준을 통과해야 완료를 선언할 수 있게 하는 evaluation-contract-first 플러그인.
 
@@ -7,12 +7,12 @@
 **필수**: Node.js >= 18.17
 
 ```bash
-cd cli && npm install                        # 의존성 설치
+cd cli && npm install && npm run build       # 의존성 설치 + cli/dist 번들 생성
 claude --plugin-dir <체크아웃-경로>           # 플러그인 등록
 claude plugin validate .                     # manifest 유효성 확인 (선택)
 ```
 
-진입점은 `.claude-plugin/plugin.json`. Skills는 `rubrix:` namespace로 로드됩니다.
+진입점은 `.claude-plugin/plugin.json`. Skills는 `rubrix:` namespace로 로드됩니다. v1.4.2부터 `cli/dist/cli.js`(esbuild single-file bundle)가 git에 커밋되어 marketplace 캐시본이 `npm install` 없이도 동작합니다 — 로컬 개발 시에만 `npm install` 필요.
 
 ## 라이프사이클
 
@@ -78,7 +78,7 @@ deduction code enum: `vague_description`, `missing_evidence`, `unmeasurable_floo
 | PreToolUse | 세 lock 모두 true 전까지 Edit/Write/MultiEdit 차단. `rubrix.json` 편집은 허용. v1.1+: brief 미calibrated 시 `/rubrix:rubric` 호출도 차단 (`RUBRIX_SKIP_BRIEF=1`로 우회). v1.2+: 임의의 v1.2 contract가 잠긴 artifact에 clarity가 없거나 score<threshold + forced≠true이면 즉시 차단 (rubrix.json 편집은 escape hatch로 계속 허용) | **차단** |
 | UserPromptExpansion | state+locks 컨텍스트 주입. plan 미잠금 시 `/rubrix:score` 차단. v1.1+: IntentDrafted + brief 미calibrated이면 `<rubrix-suggestion>` 힌트 추가. v1.2+: clarity invariant 위반 시 `/rubrix:rubric`·`/rubrix:score`도 차단 | **조건부 차단** |
 | PostToolUse | (v1.2+) 직전 `rubrix lock` 실패의 stderr deduction을 `<rubrix-suggestion>`으로 surface하고, 현재 contract에 forced=true 인 artifact가 있으면 `rubrix report` 안내 | 정보만 |
-| Stop | state=Failed일 때 종료 차단 → 개선 루프 강제 | **차단** |
+| Stop | state=Failed일 때 종료 차단 → 개선 루프 강제. v1.5+ 계획: `/goal` active 시 reason에 자동 plan revise 안내 추가 | **차단** |
 | SessionStart · PostToolBatch · SubagentStop | 상태 정보 전달 | 정보만 |
 
 **Hook이 차단했다면?** `rubrix.json`의 `state`와 `locks`를 확인하고, 해당 단계의 skill을 실행하세요. stdin 5초 내 무응답 시 gate hook은 안전하게 차단(fail-closed), 정보 hook은 통과(fail-open)합니다.
@@ -99,9 +99,22 @@ node cli/bin/rubrix.js report examples/ios-refactor/rubrix.json
 ## 검증
 
 ```bash
-cd cli && npm install && npm test              # vitest 136개 통과
+cd cli && npm install && npm run build && npm test    # vitest 591개 통과
 node cli/bin/rubrix.js validate examples/self-eval/rubrix.json
 node cli/bin/rubrix.js validate examples/ios-refactor/rubrix.json
 ```
+
+## v1.5+ 계획: `/goal` runner 통합
+
+Claude Code 2.1.139 (2026-05-11)에서 도입된 `/goal` 명령은 세션 1회용 prompt-based Stop hook 래퍼입니다. 매 turn 종료마다 small-fast 모델(Haiku 기본)이 **transcript surface만** 보고 종료 조건 충족 여부를 판정합니다 — 도구 호출 불가, 4,000자 condition cap.
+
+v1.5 시리즈는 이 `/goal`을 Rubrix의 **PlanLocked 이후 lifecycle**에 통합합니다:
+
+- `/rubrix:goal` skill: `rubrix.json`에서 transcript-evaluable termination condition을 합성. PlanLocked / Scoring / Failed 상태에서만 트리거.
+- `rubrix goal print` CLI: `rubric.criteria[].id`와 `floor`를 `gate --json`의 `overall_pass`+`state` 검증 문장으로 변환. 4,000자 cap 자동.
+- `handleStop` goal-aware reason: state=Failed block reason에 "`/goal` active 시 다음 turn에 자동 plan revise" 한 줄.
+- `report`의 `## /goal status` 섹션: evaluator가 transcript에서 직접 읽도록 contract state + last gate result를 노출.
+
+상세 진행 / Linear 트래킹: [`docs/extensible-plan.md`](docs/extensible-plan.md)의 "v1.5 — /goal as convergence runner" 섹션.
 
 전체 체크리스트: [`VERIFICATION.md`](VERIFICATION.md) · 로드맵: [`docs/extensible-plan.md`](docs/extensible-plan.md)

@@ -22,11 +22,13 @@ Claude Code가 작업을 마치기 전에 **"잘 만들었는가"를 계약으�
 **필수**: Node.js >= 18.17
 
 ```bash
-cd cli && npm install                        # 의존성 설치
+cd cli && npm install && npm run build       # 의존성 설치 + cli/dist 번들 생성 (로컬 개발 시)
 claude --plugin-dir <체크아웃-경로>           # 플러그인 등록
 /rubrix:brief                                # intent 보정 (v1.1+ 첫 skill)
 /rubrix:rubric                               # 평가 기준 작성·잠금
 ```
+
+> v1.4.2부터 `cli/dist/cli.js`(esbuild single-file bundle)가 git에 커밋되어 있어서 `/plugin install` 시 marketplace 캐시본은 `npm install` 없이 즉시 동작합니다. `npm run build`는 로컬 개발에서 소스 변경 후에만 필요합니다.
 
 ## 기능 요약
 
@@ -77,8 +79,8 @@ node cli/bin/rubrix.js validate examples/self-eval/rubrix.json    # bootstrap �
 ## 검증
 
 ```bash
-cd cli && npm install && npm test              # vitest 136개 통과
-claude plugin validate .                       # manifest 검증
+cd cli && npm install && npm run build && npm test    # vitest 591개 통과
+claude plugin validate .                               # manifest 검증
 ```
 
 전체 체크리스트: [`VERIFICATION.md`](VERIFICATION.md) · 상세 가이드: [`PLUGIN-README.md`](PLUGIN-README.md) · 로드맵: [`docs/extensible-plan.md`](docs/extensible-plan.md)

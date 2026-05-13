@@ -2,7 +2,7 @@
 
 > Claude Code Harness First
 
-> **Status (v1.0.1):** All target surface in this document is delivered. `claude plugin validate .` passes, 110 vitest tests pass, iter-4 benchmark hit with_skill 96.9% / +43.1pp delta. v1.1+ items (multi-evaluator aggregation, run history, `/improve` / `/replay` / `/learn`, domain packs) remain planned. See [`PLUGIN-README.md`](../PLUGIN-README.md) for the production-ready surface; release review history lives in GitHub Release notes per `CLAUDE.md`'s 문서 작성 규칙.
+> **Status (v1.4.2):** v1.0 target surface and v1.1–v1.4 minor releases all delivered (`intent.brief` calibration, clarity-based lock gates, multi-evaluator cascade, drift detection and recovery loop, esbuild self-contained packaging). `claude plugin validate .` passes, 591 vitest tests pass. Next planned: **v1.5 = `/goal` as convergence runner**. The previously planned v1.5 (event-log run history) is moved to v1.6. See [`PLUGIN-README.md`](../PLUGIN-README.md) for the production-ready surface; release review history lives in GitHub Release notes per `CLAUDE.md`'s 문서 작성 규칙.
 
 ## 목적과 기본 방향
 
@@ -129,6 +129,7 @@ flowchart LR
 | 병렬 평가 후 | `PostToolBatch` | multi-evaluator 판정 집계, disagreement report 생성 |
 | Subagent 종료 | `SubagentStop` | 각 evaluator 결과의 schema 검증 및 confidence 계산 |
 | 게이트 처리 | `Stop` | threshold / floor 미달 시 loop 지속 여부를 판단하고 Claude가 멈추지 못하게 차단 |
+| Convergence runner (v1.5+ 계획) | `Stop` + Claude Code `/goal` | 사용자가 PlanLocked 이후 `/rubrix:goal`로 transcript-evaluable termination condition을 합성하고 Claude Code 내장 `/goal`에 paste. 매 turn 종료마다 small-fast evaluator가 `gate --json`의 `overall_pass`+`state`를 transcript에서 확인 → 미충족 시 다음 turn 자동 재개, 충족 시 goal auto-clear. Rubrix `handleStop`은 변함없이 fail-closed로 Failed를 block; `/goal`은 별도 layer로 turn 자동 연장(둘은 같은 방향). |
 
 ## 문서 구조
 
@@ -199,16 +200,46 @@ Rubrix v0.1은 다음을 목표로 합니다.
 
 ## v1.1+ 확장 계획
 
-v1.1부터는 다음 기능을 추가합니다.
+### 출시 완료
+
+- **v1.1.0** — Intent brief & depth calibration (`/rubrix:brief`, `intent.brief.{project_type,situation,ambition,axis_depth}`, brief gate hook).
+- **v1.2.0** — Measurement-based lock gates (`{rubric,matrix,plan}.clarity`, `clarity-scorer` agent, `--force` audit).
+- **v1.3.0** — Multi-evaluator cascade (`mechanical-checker` / `semantic-judge` / `consensus-panel`, `evaluation_policy`, invisible cascade redirect).
+- **v1.4.0** — Drift detection & recovery loop (`drift_policy`, `drift-detector` agent, `--accept-drift` 1-shot lock, `accepted_drift_history` / `lock_history` audit).
+- **v1.4.1** — Cascade + drift agent manifest 등록 fix.
+- **v1.4.2** — `cli/dist/cli.js` esbuild single-file bundle 도입으로 marketplace 캐시본의 hook 실패(tsx + 모든 runtime dep 부재) 해소.
+
+### v1.5 — `/goal` as convergence runner (계획)
+
+**핵심 가치**: Rubrix의 "끝점을 명확히 한 뒤 평가항목을 만들어서 자동 수렴" 중 **자동 수렴**을 Claude Code의 `/goal` 명령으로 위임.
+
+`/goal`은 세션 1회용 prompt-based Stop hook 래퍼다. 매 turn 종료마다 small-fast 모델(Haiku)이 transcript surface만 보고 종료 조건을 판정 — 도구 호출 불가. 한 세션 active goal 1개, condition 최대 4,000자, `disableAllHooks` / `allowManagedHooksOnly` 시 비활성. (공식 docs: `https://code.claude.com/docs/en/goal`.)
+
+Rubrix는 이를 **PlanLocked 이후 lifecycle**(rubric/matrix/plan은 사람이 단계 진행)에 다음과 같이 통합한다.
+
+- 신규 skill `/rubrix:goal`: `rubrix.json`의 `rubric.threshold` + `criteria[].id`+`floor`를 transcript-evaluable한 condition으로 합성. PlanLocked / Scoring / Failed 상태에서만 트리거. 사용자에게 fenced block으로 출력해 `/goal <condition>`을 직접 paste하도록 안내(skill 자체가 `/goal` 호출 불가).
+- 신규 CLI `rubrix goal print|validate`: condition 합성과 evaluator-friendly 검사(`gate --json` / `overall_pass` / `Passed` 키워드 포함, file-read 지시어 거부).
+- 신규 schema field `goal?` (optional, v1.5+, top-level): condition 본문 + `max_chars: 4000` invariant + `derived_from_contract_hash`.
+- `handleStop`의 state=Failed reason 끝에 ` (if /goal is active, the next turn will auto-revise the plan)` append.
+- `report`에 `## /goal status` 섹션 추가 — `contract.goal.condition`(truncated) + 현재 state + last gate result. 이 섹션이 transcript surface로 박혀 다음 turn evaluator가 직접 읽음.
+
+**Failed → PlanDrafted 회복 루프 자동화**: `/goal` active 동안 `/rubrix:score` → Failed → `/rubrix:plan` mutation mode → `/rubrix:score` → Passed가 사용자 prompt 없이 자동 반복.
+
+**Linear template + Notion 페이지**도 이 시점에 재정렬해 새 ticket이 description에 작업 시작 프롬프트를 내장한다 (5문서 정책 대상 외 — Linear/Notion UI 자산).
+
+### v1.6 — Event log & run history (계획, 이전 v1.5)
+
+Append-only event log + read-only history projection. 이전 v1.5 로드맵 본문 그대로. Linear RUB-13 트래킹.
+
+### v2.0 — Convergence loop & breaking schema cleanup (계획)
+
+v1.5의 `/goal` runner가 single-generation manual convergence를 흡수하므로 v2.0은 **multi-generation convergence** (여러 generation을 비교해 수렴 여부 판정) + **breaking schema cleanup**으로 scope 축소. Linear RUB-14 트래킹.
+
+### 그 외 (잠재 backlog)
 
 - `/rubrix:improve`, `/rubrix:replay`, `/rubrix:learn` 스킬
-- Run history 자동화 (`runs/`)
-- Multi-evaluator aggregation (calibrate · panel)
 - Domain pack (iOS, web, infra)
-- 확장된 hook set 및 subagent registry
-- `@rubrix/cli` npm 배포 및 Claude Code Marketplace 등록
-
-이를 통해 Claude Code plugin 수준의 agent orchestration을 구현합니다.
+- `@rubrix/cli` npm 배포 및 Claude Code Marketplace 정식 publish (현재는 directory source).
 
 ## 배포 및 Marketplace 등록
 
