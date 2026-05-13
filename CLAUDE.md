@@ -2,13 +2,13 @@
 
 ## 역할
 
-이 저장소는 **Rubrix v1.4.2** — Claude Code용 evaluation-contract-first plugin 이다. 모호한 요청을 `rubrix.json` 중심의 평가 계약으로 구조화하고, `hooks` + `CLI` + `skills` + `subagents`로 agent 작업을 검증 가능한 lifecycle에 가둔다.
+이 저장소는 **Rubrix v1.5.0** — Claude Code용 evaluation-contract-first plugin 이다. 모호한 요청을 `rubrix.json` 중심의 평가 계약으로 구조화하고, `hooks` + `CLI` + `skills` + `subagents`로 agent 작업을 검증 가능한 lifecycle에 가둔다.
 
 주요 기준 문서는 [`PLUGIN-README.md`](PLUGIN-README.md) (사용자 가이드)와 [`docs/extensible-plan.md`](docs/extensible-plan.md) (v1.0 surface 설계 기록 + v1.1+ 확장 계획). 라이프사이클 상태/락 불변식의 SSoT는 [`cli/schemas/rubrix.schema.json`](cli/schemas/rubrix.schema.json)이다.
 
-## 현재 상태 (v1.4.2)
+## 현재 상태 (v1.5.0)
 
-`.claude-plugin/`, `skills/`, `agents/`, `hooks/`, `cli/`, `scripts/`, `examples/` 모든 표면이 구현 완료. `claude plugin validate .` 통과, `cli/tests/` 591개 전체 통과. `cli/dist/cli.js`로 self-contained ESM bundle 배포 (marketplace 캐시본은 `npm install`을 돌리지 않으므로 모든 runtime dep가 bundle에 인라인되어야 hook이 동작).
+`.claude-plugin/`, `skills/`, `agents/`, `hooks/`, `cli/`, `scripts/`, `examples/` 모든 표면이 구현 완료. `claude plugin validate .` 통과, `cli/tests/` 635개 전체 통과. `cli/dist/cli.js`로 self-contained ESM bundle 배포 (marketplace 캐시본은 `npm install`을 돌리지 않으므로 모든 runtime dep가 bundle에 인라인되어야 hook이 동작). v1.5는 **upgrade boundary**: `rubrix.json`에 새 optional `goal` artifact가 추가되어, v1.4 이하 설치된 CLI는 v1.5 contract을 reject한다 (schema의 top-level `additionalProperties:false` 때문).
 
 새 기능을 더하기 전에 현재 구현된 표면을 깨지 않는지부터 확인한다. v1.5+ 기능은 `docs/extensible-plan.md`의 "v1.1+ 확장 계획" 섹션 참고.
 
@@ -50,10 +50,10 @@ Rubrix는 문서화 전용 runtime이 아니라 Claude Code plugin/harness로 �
 
 ## 계획된 표면
 
-v1.4.2까지 구현된 표면 (변경 시 기존 동작 유지 확인 필수):
+v1.5.0까지 구현된 표면 (변경 시 기존 동작 유지 확인 필수):
 
-- Skills (plugin namespace): `/rubrix:brief`, `/rubrix:rubric`, `/rubrix:matrix`, `/rubrix:plan`, `/rubrix:score`
-- CLI: `rubrix validate | gate | report | state | lock | hook | brief | score-clarity | score | drift`
+- Skills (plugin namespace): `/rubrix:brief`, `/rubrix:rubric`, `/rubrix:matrix`, `/rubrix:plan`, `/rubrix:score`, `/rubrix:goal`
+- CLI: `rubrix validate | gate | report | state | lock | hook | brief | score-clarity | score | drift | goal`
 - Hooks (Claude Code spec — 3-level nested config): `SessionStart`, `UserPromptExpansion`, `PreToolUse`, `PostToolUse`, `PostToolBatch`, `SubagentStop`, `Stop`
 - State machine (10 states): `IntentDrafted → RubricDrafted → RubricLocked → MatrixDrafted → MatrixLocked → PlanDrafted → PlanLocked → Scoring → Passed | Failed; Failed → PlanDrafted (recovery loop)`
 - Hook contract: PreToolUse는 `hookSpecificOutput.permissionDecision` 사용 (exit 0); Stop은 exit-code path (block 시 exit 2 + stderr).

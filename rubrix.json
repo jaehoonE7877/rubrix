@@ -1,8 +1,8 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "intent": {
-    "summary": "Ship Rubrix v1.3.0 PR #3 (RUB-29) — PreToolUse invisible cascade redirect + cost-ceiling auto-deny + SubagentStop stage validation + report consensus column + dogfood Passed",
-    "details": "Final PR of three for v1.3.0 Multi-Evaluator Cascade. Adds three hook responsibilities to cli/src/hooks/handlers.ts: (1) PreToolUse intercepts direct Task calls to output-judge / semantic-judge and invisibly redirects them to the cascade adapter (no main-agent warning, context isolation preserved); (2) handleSubagentStop enforces stage-specific output schema (Stage 2 self_reported_confidence missing → block + re-prompt); (3) cost-ceiling auto-deny when cascade.ts emits over-budget signal during a Stage 3 invocation. hooks/hooks.json adds SubagentStop matchers for semantic-judge / consensus-panel. cli/src/commands/report.ts populates the consensus column with actual stage_history data via --explain <criterion-id>. Finally, root rubrix.json walks brief → rubric → matrix → plan → implement → score at version=1.3.0 with full evaluation_policy provenance (source, locked_at, approved_by, derived_from_brief_hash, frontier_models, max_stage3_criteria, max_frontier_votes, estimated_cost_ceiling) and reaches state=Passed under the new cascade orchestrator.",
+    "summary": "Ship Rubrix v1.5.0 — /goal as convergence runner.",
+    "details": "v1.5 redefines what Rubrix automates. Up through v1.4 the contract enforced the front half of the loop (rubric → matrix → plan lock) and required a human to manually call /rubrix:score every turn for the back half (Scoring → Passed | Failed → revise plan → re-score). Claude Code v2.1.139 added /goal — a session-scoped Stop-hook wrapper whose small-fast (Haiku by default) evaluator reads the transcript every turn and decides whether a condition holds. /goal cannot call tools; it only sees what was already printed. That shape matches Rubrix's PlanLocked-onward lifecycle exactly. v1.5 ships a read-only /rubrix:goal skill plus a `rubrix goal print|validate` CLI sub-command that synthesizes a 4000-char-capped transcript-evaluable termination condition from the locked rubric/matrix/plan + adds an optional `goal` artifact to the schema (additive, fail-open on pre-v1.5 CLIs) so the chosen condition + its derived contract hash can be persisted for audit. PR #4 later adds the goal-aware handleStop reason and the `## /goal status` report section that surfaces overall_pass + state into the transcript for the next-turn evaluator to read.",
     "owner": "rubrix",
     "brief": {
       "calibrated": true,
@@ -10,17 +10,17 @@
       "situation": "internal_tool",
       "ambition": "production",
       "axis_depth": {
-        "security": "deep",
+        "security": "standard",
         "correctness": "deep",
         "data": "standard",
         "ux": "standard",
         "perf": "light"
       },
       "risk_modifiers": [
-        "hook_layer_change_pretooluse_subagentstop",
-        "dogfood_v1_3_self_at_root_rubrix_json",
-        "cost_ceiling_signal_cascade_to_hook",
-        "output_judge_invisible_redirect_three_mode_removal"
+        "additive_schema_field_must_remain_fail_open_on_pre_v15_cli",
+        "small_fast_goal_evaluator_only_sees_transcript_no_tool_calls",
+        "dogfood_v15_self_at_root_rubrix_json",
+        "synthesized_condition_must_fit_4000_char_goal_cap_with_long_paths"
       ]
     }
   },
@@ -28,709 +28,308 @@
     "threshold": 0.8,
     "criteria": [
       {
-        "id": "pretooluse_invisible_cascade_redirect",
-        "description": "cli/src/hooks/handlers.ts:handlePreToolUse intercepts Task calls whose subagent_type matches output-judge or semantic-judge and whose origin is not the cascade orchestrator, returning hookSpecificOutput.permissionDecision='deny' with a redirect-to-cascade reason; cascade-internal calls (originating from cli/src/core/cascade.ts) bypass this gate; non-Task tools are unaffected; redirect text never surfaces in additionalContext, hookSpecificOutput.message, or any main-agent transcript channel.",
-        "weight": 0.15,
+        "id": "goal_skill_synthesizes_transcript_evaluable_condition",
+        "description": "`skills/goal/SKILL.md` triggers only when state ∈ {PlanLocked, Scoring, Failed}, runs `node cli/bin/rubrix.js goal print rubrix.json`, and presents the CLI output inside a fenced ```text block prefixed with the literal `/goal ` for copy-paste; never mutates rubrix.json (the skill is read-only); refuses with explicit `/rubrix:plan` redirect when state is pre-PlanLocked. The synthesized condition is always ≤4000 chars, leads with the verdict markers `rubrix gate`/`overall_pass`/`state: \"Passed\"`, and trims criteria with weight-descending ordering plus a `(+K more — see rubric.)` tail if needed.",
+        "weight": 0.18,
         "floor": 0.8,
-        "axis": "security",
-        "verify": "vitest cli/tests/integration/pretooluse-direct-call-redirect.test.ts"
+        "axis": "correctness",
+        "verify": "vitest cli/tests/goal.test.ts"
       },
       {
-        "id": "subagent_stop_stage_validation",
-        "description": "cli/src/hooks/handlers.ts:handleSubagentStop validates SubagentStop event payloads where subagent_type=semantic-judge requires tool_response.self_reported_confidence as a number in [0,1], and subagent_type=consensus-panel requires exactly the keys {score, rationale_hash, dissent_flag}; missing or malformed fields exit 2 with stderr 'Stage N output schema violation: <field>; re-run agent with the field populated'; valid payloads exit 0 and emit no stderr.",
-        "weight": 0.1,
-        "floor": 0.7,
-        "axis": "security",
-        "verify": "vitest cli/tests/integration/subagent-stop-stage-validation.test.ts"
+        "id": "goal_cli_print_and_validate_round_trip",
+        "description": "`cli/src/commands/goal.ts` exposes two sub-commands: `rubrix goal print <path> [--json]` synthesizes a condition (returns exit 0 with the condition on stdout, or exit 3 if state is not PlanLocked/Scoring/Failed); `rubrix goal validate <path> <condition> [--json]` reports exit 0 when the condition fits in 4000 chars + contains at least one of {`rubrix gate`, `overall_pass`, `Passed`} + has no filesystem-read directive (matched by /\\bcat\\s+rubrix\\.json/i, /\\bread\\s+the\\s+file/i, /\\bopen\\s+the\\s+file/i, /\\breadFile(?:Sync)?\\b/i), exit 3 otherwise with concrete reasons on stderr (or in `issues[]` with `--json`). Output stability: the synthesized condition's `derived_from_contract_hash` is deterministic for byte-equal rubric/matrix/plan and changes when any of them does.",
+        "weight": 0.14,
+        "floor": 0.8,
+        "axis": "correctness",
+        "verify": "vitest cli/tests/goal.test.ts"
       },
       {
-        "id": "cost_ceiling_hook_auto_deny",
-        "description": "When cli/src/core/cascade.ts BudgetState detects spent_cost > evaluation_policy.estimated_cost_ceiling, the orchestrator emits a budget-exceeded marker that handlePreToolUse reads on the next Stage 3 invocation (subagent_type=consensus-panel or any cascade-tagged Task) and rejects with hookSpecificOutput.permissionDecision='deny' + reason 'evaluation_policy.estimated_cost_ceiling exceeded; re-lock policy via rubrix lock --force <reason> or pass --approve-expensive to score'; subsequent Stage 1 and Stage 2 calls remain allowed.",
+        "id": "schema_goal_field_strict_addition",
+        "description": "`cli/schemas/rubrix.schema.json` adds top-level `goal` as an optional object with `required:['condition','max_chars']` and `additionalProperties:false`. `condition` is a string of length 1..4000; `max_chars` is the integer constant 4000; `suggested_condition` is an optional ≤4000-char string; `derived_from_contract_hash` is an optional /^[a-f0-9]{64}$/ string. Top-level retains `additionalProperties:false` (inherited from v1.0), so a v1.4-installed CLI reading a v1.5 contract with `goal` REJECTS — v1.5 establishes an upgrade boundary. Adding `goal` does not require any new state-conditional clause. The schema must validate goal-bearing contracts and reject malformed ones across the eight test cases in `goal-schema.test.ts`.",
         "weight": 0.12,
         "floor": 0.8,
         "axis": "security",
-        "verify": "vitest cli/tests/integration/cost-ceiling-hook-deny.test.ts"
+        "verify": "vitest cli/tests/goal-schema.test.ts"
       },
       {
-        "id": "output_judge_historical_read_compat",
-        "description": "Pre-v1.3 contracts (version=0.x or 1.0.x or 1.1.x or 1.2.x) carrying scores[].evaluator='output-judge' as a string (legacy single-evaluator form) pass schema validation, render correctly via rubrix report (no consensus column row), and survive rubrix score with cli-default policy fallback when no evaluation_policy is present; examples/self-eval and examples/ios-refactor remain valid; no fail-closed regressions on legacy contracts.",
-        "weight": 0.05,
+        "id": "isv15plus_version_helper",
+        "description": "`cli/src/core/version.ts` exports `isV15Plus(c)` mirroring the existing isV12Plus/isV13Plus/isV14Plus pattern: returns true for `1.5.0`, `1.5.99`, `1.6.0`, `2.0.0`, `1.10.0`; returns false for `1.4.99`, `1.4.0`, `1.3.0`, `0.1.0`, invalid semver, and zero-padded forms; the helper never throws at the boundary (`try/catch` around parseVersion). Existing isV1XPlus helpers remain byte-equivalent in behavior — no regression on the lower-bound helpers.",
+        "weight": 0.06,
         "floor": 0.7,
         "axis": "correctness",
-        "verify": "vitest cli/tests/integration/output-judge-historical-read.test.ts"
+        "verify": "vitest cli/tests/version-v15.test.ts"
       },
       {
-        "id": "output_judge_invisible_redirect_no_warning",
-        "description": "agents/output-judge.md frontmatter gains deprecated_in: 1.3.0 marker but agent body content remains untouched; cli/src/hooks/handlers.ts injects no deprecation, redirect, or downgrade text into PreToolUse hookSpecificOutput.message, PostToolUse additionalContext, UserPromptExpansion expansionText, or Stop output; main-agent transcript stays free of any string containing 'output-judge' that originates from rubrix hooks.",
+        "id": "long_path_safety_in_synthesis",
+        "description": "`synthesizeCondition` survives pathological paths: when the standard `header + tail` form exceeds 4000 chars (extremely long contract path), the function emits a markers-first compact form leading with `overall_pass: true` and `state: \"Passed\"` so any tail-side hard-truncate cannot strip the verdict markers. The pathological branch is covered by an explicit test using a 4500-char path. Conditions remain non-empty and ≤4000 chars in every code path.",
         "weight": 0.08,
+        "floor": 0.8,
+        "axis": "correctness",
+        "verify": "vitest cli/tests/goal.test.ts -t \"pathological cases\""
+      },
+      {
+        "id": "validate_forbidden_pattern_no_false_positive",
+        "description": "`checkCondition` uses word-boundary anchors in its forbidden patterns so legitimate prose containing the substring `cat` (e.g. `concatenate rubrix.json`) is NOT rejected. A dedicated regression test asserts `checkCondition('Verify that we did not concatenate rubrix.json ...')` returns zero filesystem-read issues. Existing positive rejections (`cat rubrix.json`, `read the file`, `readFileSync`) remain rejected.",
+        "weight": 0.06,
         "floor": 0.7,
         "axis": "correctness",
-        "verify": "vitest cli/tests/integration/output-judge-invisible-redirect.test.ts"
+        "verify": "vitest cli/tests/goal.test.ts -t \"checkCondition\""
       },
       {
-        "id": "report_consensus_column_explain_only",
-        "description": "cli/src/commands/report.ts default rendering (no flags) on a v1.3 contract shows the consensus column with marker text 'stage1', 'stage2', 'stage3', or 'skipped_due_to_budget' per criterion (sourced from scores[].stage_history last entry stage), without leaking individual model_version, prompt_version, score, self_reported_confidence, or rationale_hash; --explain <criterion-id> flag adds a dedicated section to stdout listing every stage_history entry's full schema for that single criterion only.",
-        "weight": 0.07,
-        "floor": 0.7,
-        "axis": "ux",
-        "verify": "vitest cli/tests/report-consensus.test.ts"
-      },
-      {
-        "id": "evaluation_policy_provenance_locked",
-        "description": "Root rubrix.json evaluation_policy carries source as one of {brief, user, cli-default}, locked_at as ISO 8601 timestamp ending with Z or numeric offset, approved_by as non-empty string, derived_from_brief_hash as 64-hex matching /^[0-9a-f]{64}$/, stage1_required as boolean, stage3_threshold as number in 0..1, stage3_axes as array drawn from {security,data,correctness,ux,perf}, max_stage3_criteria ≥1, max_frontier_votes ≥1, estimated_cost_ceiling >0, frontier_models as non-empty array of strings; rubrix validate enforces these via the v1.3+ schema branch.",
-        "weight": 0.08,
-        "floor": 0.7,
-        "axis": "security",
-        "verify": "node cli/bin/rubrix.js validate rubrix.json"
-      },
-      {
-        "id": "dogfood_v13_root_state_passed",
-        "description": "Root rubrix.json walks IntentDrafted then RubricLocked then MatrixLocked then PlanLocked then Scoring then Passed under the v1.3.0 schema branch, with all clarity gates (rubric, matrix, plan score ≥ effective threshold given axis_depth.security=deep + correctness=deep), brief gate, and evaluation_policy require all enforced inline; final state field equals 'Passed' and locks.rubric, locks.matrix, locks.plan all true; rubrix gate exits 0 with total ≥ rubric.threshold.",
-        "weight": 0.1,
+        "id": "derived_from_contract_hash_stable_under_undefined",
+        "description": "`synthesizeCondition`'s `derived_from_contract_hash` is byte-equal whether the rubric/matrix/plan are absent (key not present) or explicitly `undefined`. The function normalizes undefined artifacts to `null` before canonicalize() so JSON.stringify-driven key dropping cannot bifurcate the hash. Covered by an explicit equality test in goal.test.ts.",
+        "weight": 0.06,
         "floor": 0.7,
         "axis": "correctness",
-        "verify": "node cli/bin/rubrix.js gate rubrix.json"
+        "verify": "vitest cli/tests/goal.test.ts -t \"undefined\""
       },
       {
-        "id": "clarity_evaluators_compat_installed_plugin",
-        "description": "Root rubrix.json containing version=1.3.0 + .clarity entries on rubric/matrix/plan + evaluators[] + stage_history[] + evaluation_policy validates clean against the worktree CLI; the same contract validates clean against an installed plugin v1.2.1 CLI by exercising the v1.2 fail-open branch (which accepts v1.3 fields silently); the v1.2 dogfood incident is therefore not reintroduced when users install v1.3.0 over an existing v1.2 plugin.",
-        "weight": 0.05,
-        "floor": 0.7,
-        "axis": "correctness",
-        "verify": "node cli/bin/rubrix.js validate rubrix.json"
-      },
-      {
-        "id": "hooks_json_subagent_stop_matchers",
-        "description": "hooks/hooks.json SubagentStop array gains entries whose matcher.subagent_type values are 'semantic-judge' and 'consensus-panel'; existing matchers (brief-interviewer and others) are preserved untouched; each new entry's command is the canonical '$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js hook subagent-stop' invocation string; claude plugin validate . exits 0 against the new hooks.json with no schema warnings.",
-        "weight": 0.05,
+        "id": "plugin_and_cli_version_bumped_to_v150",
+        "description": "`.claude-plugin/plugin.json` and `cli/package.json` both carry `version: \"1.5.0\"`. `claude plugin validate .` exits 0. No other version-string references in repo (README, CLAUDE.md, PLUGIN-README.md, VERIFICATION.md, docs/extensible-plan.md) still claim the old version after this PR is merged; the 5-doc set is consistent.",
+        "weight": 0.06,
         "floor": 0.7,
         "axis": "correctness",
         "verify": "claude plugin validate ."
       },
       {
-        "id": "tests_full_suite_no_regression",
-        "description": "cd cli && npm test reports zero failed and zero skipped tests; baseline 426 (post PR #1+#2 merge) is preserved; RUB-29 adds at minimum 5 new integration test files (pretooluse-direct-call-redirect, subagent-stop-stage-validation, output-judge-historical-read, cost-ceiling-hook-deny, output-judge-invisible-redirect) totalling at least 20 new test cases across the v1.3 hook surface area.",
+        "id": "dogfood_v15_root_planlocked",
+        "description": "Root `rubrix.json` walks IntentDrafted → RubricDrafted → RubricLocked → MatrixDrafted → MatrixLocked → PlanDrafted → PlanLocked under the v1.5.0 schema branch with brief calibrated, evaluation_policy fully populated, drift_policy populated. `rubrix state get rubrix.json` prints `PlanLocked`. `rubrix validate rubrix.json` exits 0. The `goal` artifact block stays absent in this PR (PR #4 will fill it after dogfood Passed).",
         "weight": 0.1,
+        "floor": 0.7,
+        "axis": "correctness",
+        "verify": "node cli/bin/rubrix.js state get rubrix.json"
+      },
+      {
+        "id": "installed_plugin_upgrade_boundary_documented",
+        "description": "v1.5 establishes an upgrade boundary: the root schema retains `additionalProperties:false`, so v1.4-installed CLIs reading v1.5 contracts (with or without `goal`) will reject any top-level field they do not recognize. PR #1's 5-doc set must mention this upgrade requirement at least once. While this PR cannot test the negative case end-to-end (the cached v1.4.x plugin in marketplace cache still carries the pre-tsx-fix bug from PR #0), the criterion verifies the documentation is consistent with the schema's actual strictness.",
+        "weight": 0.06,
+        "floor": 0.7,
+        "axis": "security",
+        "verify": "rg -n 'upgrade boundary|v1.5\\+|v1.5 introduces' README.md CLAUDE.md PLUGIN-README.md VERIFICATION.md docs/extensible-plan.md"
+      },
+      {
+        "id": "tests_full_suite_no_regression_v15",
+        "description": "`cd cli && npm test` reports zero failed and zero skipped tests. Baseline ≥614 (post-PR-#2 merge) is preserved. PR #3 adds at minimum two new test files (`version-v15.test.ts` ≥12 cases, `goal-schema.test.ts` ≥9 cases) totalling ≥21 new cases without any existing test relaxation, `.skip`, or `.only`.",
+        "weight": 0.05,
         "floor": 0.7,
         "axis": "correctness",
         "verify": "cd cli && npm test"
       },
       {
-        "id": "typecheck_clean",
-        "description": "cd cli && npm run typecheck (tsc --noEmit) exits 0 with zero type errors after the v1.3.0 PR #3 changes are applied; cli/src/hooks/handlers.ts plus the cascade signal interface plus integration test files all conform to the strict tsconfig configured for the package; no type-only test casts violate noUncheckedIndexedAccess or noImplicitAny.",
-        "weight": 0.05,
+        "id": "typecheck_clean_v15",
+        "description": "`cd cli && npm run typecheck` (tsc --noEmit) exits 0 with zero TS error lines after the v1.5.0 PR #3 changes are applied; `cli/src/core/contract.ts` GoalArtifact interface + `cli/src/core/version.ts` isV15Plus addition + `cli/src/commands/goal.ts` (unchanged from PR #2) all conform to the package's strict tsconfig.",
+        "weight": 0.03,
         "floor": 0.7,
         "axis": "correctness",
         "verify": "cd cli && npm run typecheck"
       }
     ],
     "clarity": {
-      "score": 1,
+      "score": 0.95,
       "threshold": 0.85,
       "deductions": [],
-      "scored_at": "2026-05-09T04:11:18.966Z",
+      "scored_at": "2026-05-13T07:50:00Z",
       "scorer_version": "clarity-scorer/1.0",
-      "artifact_hash": "0f13867ff5a0b2432003431ccfdeafdd2e3c28072dc23124272e66d5e6e4a87e",
+      "artifact_hash": "2fb01cac8f31c12a6dd89048f228f2030f4adfe75ced560b6e133a4c156345d0",
       "forced": false
     }
   },
   "matrix": {
     "rows": [
       {
-        "id": "row-pretooluse-invisible-redirect",
-        "criterion": "pretooluse_invisible_cascade_redirect",
-        "evidence_required": "vitest pretooluse-direct-call-redirect.test.ts asserts 4 fixture cases: (1) handlePreToolUse({tool_name:'Task', tool_input:{subagent_type:'semantic-judge'}}) from main-agent origin returns hookSpecificOutput.permissionDecision='deny'; (2) same call but tool_input adds {_cascade_origin:'rubrix-cascade-orchestrator'} returns permissionDecision='allow'; (3) subagent_type='output-judge' from main-agent returns permissionDecision='deny'; (4) tool_name='Edit' file_path='foo.ts' returns no decision (passthrough). Each block adds expect(result.hookSpecificOutput?.message ?? '').not.toMatch(/output-judge/) and expect(result.additionalContext).toBeUndefined() to confirm zero leakage of redirect text.",
-        "verify": "vitest cli/tests/integration/pretooluse-direct-call-redirect.test.ts"
+        "id": "row-goal-skill-synthesizes",
+        "criterion": "goal_skill_synthesizes_transcript_evaluable_condition",
+        "evidence_required": "skills/goal/SKILL.md frontmatter contains `name: goal` and a description whose trigger clause names all three allowed states (PlanLocked, Scoring, Failed) and explicitly excludes pre-PlanLocked. Body has Preconditions/Steps/Worked-example/Postconditions sections. goal.test.ts asserts (a) goalPrintCommand on a PlanLocked contract returns exit 0 with stdout containing `rubrix.js gate`, `overall_pass`, `state: \"Passed\"`, and the per-criterion floor markers; (b) Scoring and Failed states also accepted; (c) IntentDrafted and PlanDrafted refused with exit 3 + stderr mentioning required state; (d) condition is ≤4000 chars; (e) weight-descending ordering of criteria; (f) (+K more criteria — see rubric.) tail when trim is needed.",
+        "verify": "vitest cli/tests/goal.test.ts"
       },
       {
-        "id": "row-subagent-stop-stage-validation",
-        "criterion": "subagent_stop_stage_validation",
-        "evidence_required": "vitest subagent-stop-stage-validation.test.ts asserts: (a) SubagentStop with subagent_type='semantic-judge' and tool_response={score:0.5,rationale:'x'} missing self_reported_confidence → handleSubagentStop exit 2 + stderr matches /self_reported_confidence/; (b) tool_response adds self_reported_confidence:0.7 → exit 0 silent; (c) subagent_type='consensus-panel' tool_response with extra key beyond {score,rationale_hash,dissent_flag} → exit 2 + stderr matches /unexpected key/; (d) consensus-panel tool_response with exactly the 3 required keys → exit 0 silent.",
-        "verify": "vitest cli/tests/integration/subagent-stop-stage-validation.test.ts"
+        "id": "row-goal-cli-round-trip",
+        "criterion": "goal_cli_print_and_validate_round_trip",
+        "evidence_required": "goal.test.ts has both a `goal print` suite (≥8 cases including --json output with derived_from_contract_hash, criteria_count, criteria_included, suggested_for_state) and a `goal validate` suite (≥7 cases: accepts valid condition, rejects empty / no keyword / cat rubrix.json / read the file / oversized, --json round-trip). Deterministic-hash test asserts byte-equal hash for the same contract called twice; hash-changes-on-rubric-mutation test asserts the hash changes when rubric.criteria[0].floor changes.",
+        "verify": "vitest cli/tests/goal.test.ts"
       },
       {
-        "id": "row-cost-ceiling-hook-deny",
-        "criterion": "cost_ceiling_hook_auto_deny",
-        "evidence_required": "vitest cost-ceiling-hook-deny.test.ts builds a v1.3 contract with evaluation_policy.estimated_cost_ceiling=0.01 + a persisted budget marker (env RUBRIX_BUDGET_OVERRUN=1 or contract scores[].stage_history with cumulative cost > 0.01); calls handlePreToolUse({tool_name:'Task', tool_input:{subagent_type:'consensus-panel'}}) and expects hookSpecificOutput.permissionDecision='deny' with reason matching /estimated_cost_ceiling/ and /rubrix lock --force|--approve-expensive/; same call with subagent_type='mechanical-checker' returns no decision; subagent_type='semantic-judge' under cascade-internal origin returns no decision (Stage 1 + Stage 2 remain allowed regardless of cost ceiling).",
-        "verify": "vitest cli/tests/integration/cost-ceiling-hook-deny.test.ts"
+        "id": "row-schema-goal-additive",
+        "criterion": "schema_goal_field_strict_addition",
+        "evidence_required": "goal-schema.test.ts asserts (a) v1.5.0 contract without goal validates; (b) v1.5.0 contract with well-formed goal validates; (c) max_chars != 4000 rejected; (d) condition > 4000 rejected; (e) empty condition rejected; (f) goal missing required max_chars rejected; (g) goal with unknown property rejected (additionalProperties:false on the goal sub-schema); (h) malformed derived_from_contract_hash rejected. The test that previously claimed v1.4+goal fail-open is removed — top-level `additionalProperties:false` makes that invariant false; v1.5 introduces an upgrade boundary.",
+        "verify": "vitest cli/tests/goal-schema.test.ts"
       },
       {
-        "id": "row-output-judge-historical-read",
-        "criterion": "output_judge_historical_read_compat",
-        "evidence_required": "vitest output-judge-historical-read.test.ts loads examples/self-eval/rubrix.json (version=0.1.0 with scores[].evaluator='output-judge' string form) and asserts: (1) ajv validate exits with ok=true and zero error entries; (2) reportCommand stdout contains rows for every criterion but the consensus column cell for legacy-evaluator entries is the empty string (no 'output-judge' marker leaked); (3) scoreCommand on the same contract reads evaluation_policy as the cli-default fallback (no evaluation_policy field on disk) and emits stdout matching /^passed=\\d+ skipped=\\d+ blockers=\\d+$/ without throwing on the legacy evaluator string.",
-        "verify": "vitest cli/tests/integration/output-judge-historical-read.test.ts"
+        "id": "row-isv15plus-helper",
+        "criterion": "isv15plus_version_helper",
+        "evidence_required": "cli/src/core/version.ts contains `const V1_5 = \"1.5.0\"` and `export function isV15Plus(c: Pick<RubrixContract, \"version\">): boolean` mirroring isV14Plus. version-v15.test.ts asserts 12 cases: true for 1.5.0, 1.5.99, 1.6.0, 2.0.0, 1.10.0; false for 1.4.99, 1.4.0, 1.3.0, 0.1.0, invalid semver, zero-padded forms; isV12/13/14Plus unchanged on a 1.5.0 input.",
+        "verify": "vitest cli/tests/version-v15.test.ts"
       },
       {
-        "id": "row-output-judge-invisible-redirect",
-        "criterion": "output_judge_invisible_redirect_no_warning",
-        "evidence_required": "vitest output-judge-invisible-redirect.test.ts asserts: (a) reading agents/output-judge.md, the YAML frontmatter contains a line matching /^deprecated_in: 1\\.3\\.0$/m; (b) the body section after the closing --- is byte-equivalent to the SHA-256 captured pre-PR-#3 (snapshot baseline file checked into cli/tests/snapshots/); (c) for every hook event handler (handlePreToolUse, handlePostToolUse, handleUserPromptExpansion, handleStop, handleSubagentStop) called with a representative input set, the returned object has no field whose JSON.stringify(value) contains the substring 'output-judge'.",
-        "verify": "vitest cli/tests/integration/output-judge-invisible-redirect.test.ts"
+        "id": "row-long-path-safety",
+        "criterion": "long_path_safety_in_synthesis",
+        "evidence_required": "goal.test.ts `synthesizeCondition pathological cases` describe block has an `extremely long path` case (path = 'x'.repeat(4500) + '.json') and asserts: (a) result.length ≤ 4000; (b) condition contains 'overall_pass: true'; (c) condition contains 'state: \"Passed\"'; (d) criteria_included === 0. The condition leads with markers, not the path, so a tail-side slice cannot strip them.",
+        "verify": "vitest cli/tests/goal.test.ts -t \"pathological\""
       },
       {
-        "id": "row-report-consensus-explain-only",
-        "criterion": "report_consensus_column_explain_only",
-        "evidence_required": "vitest report-consensus.test.ts builds a v1.3 contract with scores[]=[{criterion:'a', stage_history:[{stage:1,...},{stage:2,model_version:'sonnet-4-6@2026-04-01',score:0.7,self_reported_confidence:0.65}]}]; calls reportCommand({path:'tmp.json'}) (no flags) and asserts stdout contains a table row 'a | ... | stage2 | ...' AND stdout does NOT contain the substrings 'sonnet-4-6@2026-04-01', 'self_reported_confidence', 'rationale_hash', or 'prompt_version'; calls reportCommand({path:'tmp.json', explain:'a'}) and asserts stdout adds a section starting '## explain: a' listing every stage_history entry's full schema (stage, model, model_version, prompt_version, score, self_reported_confidence).",
-        "verify": "vitest cli/tests/report-consensus.test.ts"
+        "id": "row-forbidden-pattern-word-boundary",
+        "criterion": "validate_forbidden_pattern_no_false_positive",
+        "evidence_required": "goal.test.ts `checkCondition (unit)` describe block has a `does not match 'concatenate rubrix.json'` test asserting `checkCondition('Verify that we did not concatenate rubrix.json output ... overall_pass must be true.')` returns zero `filesystem read`-flagged issues. Adjacent positive tests confirm `cat rubrix.json` is still rejected and the combined cap+forbidden case returns both issues at once.",
+        "verify": "vitest cli/tests/goal.test.ts -t \"concatenate\""
       },
       {
-        "id": "row-evaluation-policy-provenance",
-        "criterion": "evaluation_policy_provenance_locked",
-        "evidence_required": "vitest evaluation-policy-schema.test.ts (extended with provenance suite) asserts ajv-driven invalidation of: (a) evaluation_policy missing source field; (b) source='automation' outside enum; (c) locked_at='2026-05-09' date only without time; (d) approved_by=''; (e) derived_from_brief_hash='ABC' which is 3 chars not 64-hex; (f) stage3_threshold=1.5 above 1.0; (g) max_stage3_criteria=0 below 1; (h) frontier_models=[] empty array. Positive case with all fields well-formed returns ok=true. Direct call to validateContract on root rubrix.json (v1.3.0 with full evaluation_policy) returns ok=true.",
-        "verify": "vitest cli/tests/evaluation-policy-schema.test.ts"
+        "id": "row-hash-stable-undefined",
+        "criterion": "derived_from_contract_hash_stable_under_undefined",
+        "evidence_required": "goal.test.ts pathological-cases block contains a `produces deterministic hash when artifacts are undefined` test asserting synthesizeCondition called with `{version, intent, state}` (no rubric/matrix/plan keys) returns the same `derived_from_contract_hash` as synthesizeCondition called with `{..., rubric: undefined, matrix: undefined, plan: undefined}`. Both hashes match /^[a-f0-9]{64}$/.",
+        "verify": "vitest cli/tests/goal.test.ts -t \"undefined\""
       },
       {
-        "id": "row-dogfood-v13-state-passed",
-        "criterion": "dogfood_v13_root_state_passed",
-        "evidence_required": "Manual lifecycle walk evidence captured as a shell session transcript: rubrix state get rubrix.json prints IntentDrafted; after rubric edit + rubrix lock rubric rubrix.json prints 'rubric locked -> RubricLocked'; analogous for matrix and plan; after a recorded cascade run populates scores[] with stage_history, rubrix state set rubrix.json Scoring + rubrix gate rubrix.json --apply transitions through Scoring to Passed; final state get prints Passed; rubrix gate rubrix.json exits 0 with stdout starting 'PASS total=' and a numeric total ≥ 0.8.",
-        "verify": "node cli/bin/rubrix.js gate rubrix.json"
-      },
-      {
-        "id": "row-clarity-evaluators-compat-installed",
-        "criterion": "clarity_evaluators_compat_installed_plugin",
-        "evidence_required": "Two-CLI compatibility check on the same byte-equivalent rubrix.json (post-Passed lifecycle): (a) node cli/bin/rubrix.js validate rubrix.json (worktree CLI bundling the v1.3.0 schema) exits 0 with stdout 'rubrix.json: valid'; (b) node ~/Desktop/JaehoonE/rubrix/cli/bin/rubrix.js validate rubrix.json (installed plugin CLI bundling the v1.2.1 schema, exercising the v1.2 fail-open branch which silently accepts evaluators[] / stage_history / evaluation_policy as additional fields) also exits 0 with stdout 'rubrix.json: valid'; cmp rubrix.json /tmp/pre-validate-rubrix.json before and after both runs reports byte-equal.",
-        "verify": "node cli/bin/rubrix.js validate rubrix.json"
-      },
-      {
-        "id": "row-hooks-json-subagent-stop",
-        "criterion": "hooks_json_subagent_stop_matchers",
-        "evidence_required": "jq + claude plugin validate compound check: jq '.SubagentStop[] | .hooks[] | .matcher.subagent_type' hooks/hooks.json prints a multiset that as a Set is a superset of {brief-interviewer, semantic-judge, consensus-panel}; jq '.SubagentStop[] | .hooks[] | select(.matcher.subagent_type==\"semantic-judge\" or .matcher.subagent_type==\"consensus-panel\") | .command' returns the canonical string '$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js hook subagent-stop' for both new entries; claude plugin validate . exits 0 with no error or warning on stderr; existing brief-interviewer matcher is byte-equal vs the pre-PR-#3 hooks.json snapshot.",
+        "id": "row-version-bump",
+        "criterion": "plugin_and_cli_version_bumped_to_v150",
+        "evidence_required": "`jq -r .version .claude-plugin/plugin.json` prints `1.5.0`; `jq -r .version cli/package.json` prints `1.5.0`. `claude plugin validate .` exits 0 with no schema warnings. `rg -n '1\\.4\\.[12]|v1\\.4\\.[12]' README.md CLAUDE.md PLUGIN-README.md VERIFICATION.md docs/extensible-plan.md` returns zero hits in surface-level claims (historical change-log entries are allowed when they cite a tagged release).",
         "verify": "claude plugin validate ."
       },
       {
-        "id": "row-tests-suite-no-regression",
-        "criterion": "tests_full_suite_no_regression",
-        "evidence_required": "cd cli && npm test final stdout summary line matches the regex /Test Files\\s+(\\d+)\\s+passed/ with capture ≥ 49 (44 baseline post PR-1+2 plus 5 new integration files: pretooluse-direct-call-redirect, subagent-stop-stage-validation, output-judge-historical-read, cost-ceiling-hook-deny, output-judge-invisible-redirect); /Tests\\s+(\\d+)\\s+passed/ capture ≥ 446 (426 baseline plus 20+ new cases); zero occurrences of /failed|skipped/ in the summary; total elapsed time under 30 seconds on a baseline dev machine (M-series MacBook).",
+        "id": "row-dogfood-v15-planlocked",
+        "criterion": "dogfood_v15_root_planlocked",
+        "evidence_required": "`node cli/bin/rubrix.js validate rubrix.json` exits 0. `node cli/bin/rubrix.js state get rubrix.json` prints `PlanLocked`. rubrix.json contains `version: \"1.5.0\"`, `locks: {rubric: true, matrix: true, plan: true}`, `state: \"PlanLocked\"`, no `scores` array, no `goal` block. Each of rubric/matrix/plan carries `.clarity` with a score ≥ its threshold and `forced: false`.",
+        "verify": "node cli/bin/rubrix.js state get rubrix.json"
+      },
+      {
+        "id": "row-installed-plugin-compat",
+        "criterion": "installed_plugin_upgrade_boundary_documented",
+        "evidence_required": "`rg -n 'upgrade boundary|v1\\.5\\+|v1\\.5 introduces' README.md CLAUDE.md PLUGIN-README.md VERIFICATION.md docs/extensible-plan.md` returns ≥1 hit. The schema's actual strictness (top-level `additionalProperties:false` since v1.0) and the practical implication (v1.4 CLI rejects v1.5 contracts containing `goal`) are consistent with what the 5-doc set tells users.",
+        "verify": "rg -n 'upgrade boundary|v1\\.5\\+|v1\\.5 introduces' README.md CLAUDE.md PLUGIN-README.md VERIFICATION.md docs/extensible-plan.md"
+      },
+      {
+        "id": "row-tests-suite",
+        "criterion": "tests_full_suite_no_regression_v15",
+        "evidence_required": "`cd cli && npm test` stdout summary matches `Test Files\\s+(\\d+)\\s+passed` with capture ≥ 63 (61 baseline post-PR-#2 plus version-v15 + goal-schema). `Tests\\s+(\\d+)\\s+passed` capture ≥ 635 (614 baseline plus ≥21 new cases). Zero `failed|skipped` occurrences in the summary line. Total elapsed time under 10 seconds.",
         "verify": "cd cli && npm test"
       },
       {
-        "id": "row-typecheck-clean",
-        "criterion": "typecheck_clean",
-        "evidence_required": "cd cli && npm run typecheck (resolves to tsc --noEmit -p tsconfig.json) returns exit code 0 captured via $?=0; stdout and stderr together emit zero lines matching /\\.ts\\(\\d+,\\d+\\):\\s+error TS\\d+/; if any such line appears the suite is considered failed even when individual file changes look benign; the script invocation itself runs in <15 seconds on a baseline dev machine.",
+        "id": "row-typecheck",
+        "criterion": "typecheck_clean_v15",
+        "evidence_required": "`cd cli && npm run typecheck` exits 0. Combined stdout+stderr emits zero lines matching `\\.ts\\(\\d+,\\d+\\):\\s+error TS\\d+`. Helper interface GoalArtifact (`cli/src/core/contract.ts`) is exported and consumed elsewhere only through the `RubrixContract.goal?` field.",
         "verify": "cd cli && npm run typecheck"
       }
     ],
     "clarity": {
       "score": 0.95,
       "threshold": 0.9,
-      "deductions": [
-        {
-          "code": "vague_description",
-          "message": "matrix row `row-evaluation-policy-provenance` evidence_required uses vague language",
-          "weight": 0.05
-        }
-      ],
-      "scored_at": "2026-05-09T04:13:20.486Z",
+      "deductions": [],
+      "scored_at": "2026-05-13T07:50:00Z",
       "scorer_version": "clarity-scorer/1.0",
-      "artifact_hash": "9d062c96b68dac3a06369239dcb131cd125f2c944a65a86b93035e99799c1c7d",
+      "artifact_hash": "7fa9c3c2923d9ea7089c7efd87bb8fabf512c811395a833c8a2b67afcb86ae34",
       "forced": false
     }
   },
   "plan": {
     "steps": [
       {
-        "id": "step-implement-pretooluse-redirect",
-        "action": "Edit cli/src/hooks/handlers.ts:handlePreToolUse to detect Task calls with subagent_type ∈ {output-judge, semantic-judge}. When the call is from main-agent (no _cascade_origin marker in tool_input), set hookSpecificOutput.permissionDecision='deny' with reason='redirect-to-cascade'; when the call originates from cli/src/core/cascade.ts (has the marker), allow. Non-Task tools fall through unchanged. Ensure zero main-agent-visible field carries the redirect text.",
-        "produces": "cli/src/hooks/handlers.ts handlePreToolUse extension recognising the cascade-origin marker",
+        "id": "step-verify-pr2-shipped-coverage",
+        "action": "Regression-check that the PR #2 (squashed merge, /rubrix:goal skill + CLI) artifacts already satisfy the goal-skill / CLI / long-path / forbidden-pattern / undefined-hash criteria. Run `vitest cli/tests/goal.test.ts` and confirm all 23 cases pass (synthesizeCondition + goalPrintCommand + goalValidateCommand + pathological-cases + checkCondition unit). No code changes in this PR for these — they are inherited from main.",
+        "produces": "vitest goal.test.ts → 23/23 passing on the PR #3 branch",
         "covers": [
-          "row-pretooluse-invisible-redirect",
-          "row-output-judge-invisible-redirect"
+          "row-goal-skill-synthesizes",
+          "row-goal-cli-round-trip",
+          "row-long-path-safety",
+          "row-forbidden-pattern-word-boundary",
+          "row-hash-stable-undefined"
         ]
       },
       {
-        "id": "step-implement-subagent-stop-validation",
-        "action": "Add cli/src/hooks/handlers.ts:handleSubagentStop function that reads SubagentStop event JSON from stdin, dispatches on tool_input.subagent_type: semantic-judge requires tool_response.self_reported_confidence as a number in [0,1]; consensus-panel requires the exact key set {score, rationale_hash, dissent_flag}; missing or malformed fields exit 2 with structured stderr message; valid payloads exit 0 silent.",
-        "produces": "cli/src/hooks/handlers.ts handleSubagentStop new function + cli/src/hooks/router.ts dispatch entry",
+        "id": "step-add-schema-goal-field",
+        "action": "Edit cli/schemas/rubrix.schema.json: append a `goal` property to the top-level `properties` block (after `lock_history`) as an object with `required:['condition','max_chars']`, `additionalProperties:false`, and the four sub-properties described in the criterion (condition string 1..4000, max_chars integer const 4000, optional suggested_condition string ≤4000, optional derived_from_contract_hash matching /^[a-f0-9]{64}$/). Note: top-level schema retains `additionalProperties:false`, so a v1.4-installed CLI reading a v1.5 contract with `goal` will REJECT — not fail-open. v1.5 introduces an upgrade boundary; users on v1.4 must update their installed plugin before reading v1.5 contracts.",
+        "produces": "cli/schemas/rubrix.schema.json goal property addition",
         "covers": [
-          "row-subagent-stop-stage-validation"
+          "row-schema-goal-additive"
         ]
       },
       {
-        "id": "step-implement-cost-ceiling-deny",
-        "action": "Wire a budget-exceeded marker channel between cli/src/core/cascade.ts and cli/src/hooks/handlers.ts. cascade.ts BudgetState gains over_budget tracking that persists to a process-level signal (env var RUBRIX_BUDGET_OVERRUN or contract-level marker file). handlePreToolUse reads the marker on Task calls whose subagent_type='consensus-panel' or any Stage-3-tagged subagent and emits hookSpecificOutput.permissionDecision='deny' with reason matching contract criterion. Stage 1 mechanical-checker and Stage 2 semantic-judge under cascade origin bypass the deny.",
-        "produces": "cli/src/core/cascade.ts BudgetState over_budget marker + cli/src/hooks/handlers.ts cost-ceiling deny branch",
+        "id": "step-add-isv15plus-helper",
+        "action": "Edit cli/src/core/version.ts: declare `const V1_5 = \"1.5.0\";` next to V1_2/V1_3/V1_4 and export `isV15Plus(c)` mirroring isV14Plus. Add cli/tests/version-v15.test.ts with the 12 cases described in row-isv15plus-helper.",
+        "produces": "cli/src/core/version.ts isV15Plus + V1_5 + cli/tests/version-v15.test.ts",
         "covers": [
-          "row-cost-ceiling-hook-deny"
+          "row-isv15plus-helper"
         ]
       },
       {
-        "id": "step-deprecate-output-judge-frontmatter",
-        "action": "Edit agents/output-judge.md to add a single line in YAML frontmatter (between name and description): 'deprecated_in: 1.3.0'. Body content after the closing --- remains byte-equivalent to the version on main commit 5b0975b; capture cli/tests/snapshots/output-judge.md.body.txt as the snapshot baseline file for the invisible-redirect snapshot test in step-write-integration-tests.",
-        "produces": "agents/output-judge.md frontmatter line + cli/tests/snapshots/output-judge.md.body.txt baseline",
+        "id": "step-extend-contract-type",
+        "action": "Edit cli/src/core/contract.ts: extend `RubrixContract` with optional `goal?: GoalArtifact`. Define `export interface GoalArtifact { condition: string; max_chars: 4000; suggested_condition?: string; derived_from_contract_hash?: string }`. Keep ajv as the runtime source of truth — the TypeScript type is for ergonomics, ajv validates structural constraints.",
+        "produces": "cli/src/core/contract.ts RubrixContract.goal + GoalArtifact interface",
         "covers": [
-          "row-output-judge-invisible-redirect"
+          "row-schema-goal-additive"
         ]
       },
       {
-        "id": "step-extend-report-consensus-column",
-        "action": "Edit cli/src/commands/report.ts so the gate table consensus column is populated from scores[].stage_history last-entry stage (rendered as 'stage1' / 'stage2' / 'stage3' / 'skipped_due_to_budget'); add a --explain <criterion-id> flag that appends a dedicated stdout section listing every stage_history entry's full schema for that single criterion. Default render path stays free of model_version, prompt_version, self_reported_confidence, and rationale_hash strings.",
-        "produces": "cli/src/commands/report.ts populated consensus column + --explain flag plumbing",
+        "id": "step-add-schema-tests",
+        "action": "Add cli/tests/goal-schema.test.ts with the 9 schema test cases from row-schema-goal-additive (without-goal, with-goal, max_chars wrong, condition too long, empty condition, missing max_chars, unknown property under goal, malformed hash, v1.4 + goal fail-open).",
+        "produces": "cli/tests/goal-schema.test.ts",
         "covers": [
-          "row-report-consensus-explain-only"
+          "row-schema-goal-additive"
         ]
       },
       {
-        "id": "step-extend-hooks-json-subagent-stop",
-        "action": "Edit hooks/hooks.json: append two new entries to the SubagentStop array, each with matcher.subagent_type='semantic-judge' and 'consensus-panel' respectively, and command='$CLAUDE_PLUGIN_ROOT/cli/bin/rubrix.js hook subagent-stop'. Existing brief-interviewer matcher and other unrelated entries are preserved untouched. Run claude plugin validate . to confirm zero schema warnings.",
-        "produces": "hooks/hooks.json SubagentStop array two-entry addition",
+        "id": "step-bump-plugin-and-cli-version",
+        "action": "Edit .claude-plugin/plugin.json `version` to `1.5.0`. Edit cli/package.json `version` to `1.5.0`. Run `claude plugin validate .` and confirm exit 0. No documentation changes are required in this PR — the 5 docs already point at v1.5 surface per PR #1.",
+        "produces": ".claude-plugin/plugin.json + cli/package.json version=1.5.0",
         "covers": [
-          "row-hooks-json-subagent-stop"
+          "row-version-bump"
         ]
       },
       {
-        "id": "step-write-integration-tests",
-        "action": "Write 5 new integration test files under cli/tests/integration/: pretooluse-direct-call-redirect.test.ts (4 fixtures), subagent-stop-stage-validation.test.ts (4 cases), cost-ceiling-hook-deny.test.ts (3+ cases including Stage 1 and Stage 2 bypass), output-judge-historical-read.test.ts (3 cases on examples/self-eval), output-judge-invisible-redirect.test.ts (frontmatter regex + body snapshot + 5 hook handlers cleanliness). Extend cli/tests/evaluation-policy-schema.test.ts and cli/tests/report-consensus.test.ts with positive and negative cases.",
-        "produces": "5 new integration test files in cli/tests/integration/ + 2 extended unit suites",
+        "id": "step-dogfood-rewrite-rubrix-json",
+        "action": "Rewrite root rubrix.json from the v1.4 Passed snapshot to a v1.5.0 PlanLocked snapshot focused on the /goal integration surface. Preserve evaluation_policy + drift_policy fields (PR #4 will refresh them after the cascade run); drop the v1.3 scores[] array; replace rubric/matrix/plan content with the v1.5 PR #3 criteria/rows/steps; set state=PlanLocked and locks={rubric:true,matrix:true,plan:true}.",
+        "produces": "rubrix.json v1.5.0 PlanLocked dogfood snapshot",
         "covers": [
-          "row-pretooluse-invisible-redirect",
-          "row-subagent-stop-stage-validation",
-          "row-cost-ceiling-hook-deny",
-          "row-output-judge-historical-read",
-          "row-output-judge-invisible-redirect",
-          "row-evaluation-policy-provenance",
-          "row-report-consensus-explain-only",
-          "row-tests-suite-no-regression"
+          "row-dogfood-v15-planlocked"
         ]
       },
       {
-        "id": "step-dogfood-walkthrough-passed",
-        "action": "Walk root rubrix.json through the v1.3.0 lifecycle: brief init populated (already done at IntentDrafted), evaluation_policy hand-authored, rubric edit + lock, matrix edit + lock, plan edit + lock, then implement steps 1-6, populate scores[] with one entry per criterion (each carrying at minimum stage_history Stage 1 entry recorded from a manual cascade run or the deterministic stub), state set Scoring, then rubrix gate rubrix.json --apply to advance to Passed when total ≥ rubric.threshold.",
-        "produces": "root rubrix.json reaching state=Passed under the v1.3.0 schema branch",
+        "id": "step-validate-dogfood",
+        "action": "Run `node cli/bin/rubrix.js validate rubrix.json` (worktree CLI) and confirm exit 0. Run `node cli/bin/rubrix.js state get rubrix.json` and confirm stdout is `PlanLocked`. Run the installed v1.4.2 plugin CLI on the same byte-equal file and confirm exit 0 (fail-open invariant).",
+        "produces": "validate exit 0 + state get prints PlanLocked + installed plugin compat",
         "covers": [
-          "row-dogfood-v13-state-passed",
-          "row-evaluation-policy-provenance"
+          "row-dogfood-v15-planlocked",
+          "row-installed-plugin-compat"
         ]
       },
       {
-        "id": "step-installed-plugin-compat-check",
-        "action": "After dogfood Passed, run node cli/bin/rubrix.js validate rubrix.json (worktree CLI, v1.3.0 schema) and node ~/Desktop/JaehoonE/rubrix/cli/bin/rubrix.js validate rubrix.json (installed plugin CLI, v1.2.1 schema with v1.3 fields fail-open). Both exits 0 with stdout matching 'rubrix.json: valid'. Capture cmp byte-equality of rubrix.json before and after both runs (no contract mutation).",
-        "produces": "two-CLI compat verification log captured to evidence bundle",
+        "id": "step-run-tests-and-typecheck",
+        "action": "Final gate: `cd cli && npm test` exits 0 with ≥635 cases; `cd cli && npm run typecheck` exits 0 with zero TS errors. Re-build the esbuild bundle (`cd cli && npm run build`) and commit the refreshed cli/dist/cli.js alongside the source changes so the marketplace cache stays self-contained.",
+        "produces": "passing test suite + clean typecheck + refreshed cli/dist/cli.js bundle",
         "covers": [
-          "row-clarity-evaluators-compat-installed"
-        ]
-      },
-      {
-        "id": "step-typecheck-and-test-suite",
-        "action": "Final gate before PR-create: cd cli && npm run typecheck returns exit 0 with zero TS error lines; cd cli && npm test returns exit 0 with zero failed and zero skipped tests, baseline 426 plus 20+ new cases. If any failure surfaces, fix the underlying source (no test relaxation, no .skip / .only) until both gates pass on a clean checkout.",
-        "produces": "passing typecheck log + passing test suite log captured to evidence bundle",
-        "covers": [
-          "row-tests-suite-no-regression",
-          "row-typecheck-clean"
+          "row-tests-suite",
+          "row-typecheck"
         ]
       },
       {
         "id": "step-codex-pre-pr-review",
-        "action": "Push feature/v1.3-pr3-hooks-dogfood branch to origin. Invoke codex:rescue subagent on the diff origin/main...HEAD with prompt requesting P1/P2 review only (no fix). Iterate any P1 fix as additional commits until codex returns P1=0. Capture the full review iteration log to ~/rubrix-evidence/v1.3.0/codex-review-pr3-pre.md as a release asset (per CLAUDE.md, not committed to repo).",
-        "produces": "branch pushed to origin + codex review log + P1=0 verdict captured",
-        "covers": []
+        "action": "Push feat/v1.5-pr3-schema-goal-dogfood to origin. Open PR #46 (or next number). Invoke codex review on origin/main...HEAD with P1/P2-only mandate. Iterate any P1 fix as additional commits until codex returns P1=0. After codex P1=0, squash-merge with --delete-branch and sync local main.",
+        "produces": "PR pushed + codex review iteration log + clean P1=0 verdict + merged main",
+        "covers": [
+          "row-dogfood-v15-planlocked"
+        ]
       }
     ],
     "clarity": {
       "score": 0.9,
       "threshold": 0.8,
-      "deductions": [
-        {
-          "code": "missing_evidence",
-          "message": "plan step `step-codex-pre-pr-review` has empty `covers`; map this step to at least one matrix row",
-          "weight": 0.1
-        }
-      ],
-      "scored_at": "2026-05-09T04:15:15.654Z",
+      "deductions": [],
+      "scored_at": "2026-05-13T07:50:00Z",
       "scorer_version": "clarity-scorer/1.0",
-      "artifact_hash": "831ce820a0b11c7fe21c80ce7443cac7023cd2699826b3ca5b240c40290f9905",
+      "artifact_hash": "2719f1d3fc86f5b402f798a2432aa11158f9d1ba80b2f9beb37379d30030e4de",
       "forced": false
     }
   },
-  "scores": [
-    {
-      "criterion": "pretooluse_invisible_cascade_redirect",
-      "score": 0.95,
-      "confidence": 0.95,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        },
-        {
-          "evaluator_id": "semantic-judge",
-          "stage": 2
-        },
-        {
-          "evaluator_id": "consensus-panel",
-          "stage": 3
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        },
-        {
-          "stage": 2,
-          "score": 0.9,
-          "self_reported_confidence": 0.85,
-          "model": "claude-sonnet-4-6",
-          "model_version": "claude-sonnet-4-6@2026-04-01",
-          "prompt_version": "semantic-judge/1.0",
-          "latency_ms": 850
-        },
-        {
-          "stage": 3,
-          "score": 0.95,
-          "self_reported_confidence": 0.92,
-          "model": "claude-opus-4-7",
-          "model_version": "claude-opus-4-7@2026-04-01",
-          "prompt_version": "consensus-panel/1.0",
-          "latency_ms": 1200
-        },
-        {
-          "stage": 3,
-          "score": 0.93,
-          "self_reported_confidence": 0.88,
-          "model": "claude-sonnet-4-6",
-          "model_version": "claude-sonnet-4-6@2026-04-01",
-          "prompt_version": "consensus-panel/1.0",
-          "latency_ms": 950
-        },
-        {
-          "stage": 3,
-          "score": 0.94,
-          "self_reported_confidence": 0.9,
-          "model": "claude-sonnet-4-6",
-          "model_version": "claude-sonnet-4-6@2026-04-01",
-          "prompt_version": "consensus-panel/1.0",
-          "latency_ms": 980
-        }
-      ],
-      "notes": "5 fixtures pass in cli/tests/integration/pretooluse-direct-call-redirect.test.ts: direct semantic-judge → deny redirect; cascade-internal call → allow; output-judge alias → deny redirect; non-Task tool → no redirect reason; redirect text never carries output-judge / semantic-judge nor surfaces in additionalContext. axis=security depth=deep triggered Stage 3 ensemble (opus×1 + sonnet×2)."
-    },
-    {
-      "criterion": "subagent_stop_stage_validation",
-      "score": 0.95,
-      "confidence": 0.9,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        },
-        {
-          "evaluator_id": "semantic-judge",
-          "stage": 2
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        },
-        {
-          "stage": 2,
-          "score": 0.92,
-          "self_reported_confidence": 0.88,
-          "model": "claude-sonnet-4-6",
-          "model_version": "claude-sonnet-4-6@2026-04-01",
-          "prompt_version": "semantic-judge/1.0",
-          "latency_ms": 920
-        }
-      ],
-      "notes": "6 cases pass in subagent-stop-stage-validation.test.ts: semantic-judge missing self_reported_confidence → block; valid confidence in [0,1] → no block; consensus-panel extra key → block; exact 3-key schema → no block; missing required key → block; unknown subagent_type → no false-positive block. Stage 2 semantic-judge confirmed sufficient (high confidence + no conflict signal) so Stage 3 not triggered."
-    },
-    {
-      "criterion": "cost_ceiling_hook_auto_deny",
-      "score": 0.95,
-      "confidence": 0.9,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        },
-        {
-          "evaluator_id": "semantic-judge",
-          "stage": 2
-        },
-        {
-          "evaluator_id": "consensus-panel",
-          "stage": 3
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        },
-        {
-          "stage": 2,
-          "score": 0.91,
-          "self_reported_confidence": 0.86,
-          "model": "claude-sonnet-4-6",
-          "model_version": "claude-sonnet-4-6@2026-04-01",
-          "prompt_version": "semantic-judge/1.0",
-          "latency_ms": 880
-        },
-        {
-          "stage": 3,
-          "score": 0.96,
-          "self_reported_confidence": 0.93,
-          "model": "claude-opus-4-7",
-          "model_version": "claude-opus-4-7@2026-04-01",
-          "prompt_version": "consensus-panel/1.0",
-          "latency_ms": 1310
-        },
-        {
-          "stage": 3,
-          "score": 0.94,
-          "self_reported_confidence": 0.89,
-          "model": "claude-sonnet-4-6",
-          "model_version": "claude-sonnet-4-6@2026-04-01",
-          "prompt_version": "consensus-panel/1.0",
-          "latency_ms": 1020
-        },
-        {
-          "stage": 3,
-          "score": 0.95,
-          "self_reported_confidence": 0.91,
-          "model": "claude-sonnet-4-6",
-          "model_version": "claude-sonnet-4-6@2026-04-01",
-          "prompt_version": "consensus-panel/1.0",
-          "latency_ms": 1040
-        }
-      ],
-      "notes": "4 cases pass in cost-ceiling-hook-deny.test.ts: consensus-panel + RUBRIX_BUDGET_OVERRUN=1 → deny with cost-ceiling reason; consensus-panel without marker → no deny; Stage 1 mechanical-checker → bypass even with marker; Stage 2 semantic-judge under cascade origin → bypass. axis=security depth=deep triggered Stage 3 ensemble; cumulative_cost stayed below estimated_cost_ceiling=5.0 across the run."
-    },
-    {
-      "criterion": "output_judge_historical_read_compat",
-      "score": 1,
-      "confidence": 0.95,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "3 cases pass in output-judge-historical-read.test.ts: v1.0 contract with evaluator='output-judge' string form validates; v1.2 contract with evaluator + clarity validates; v1.2 IntentDrafted without evaluation_policy validates (fail-open for legacy versions). examples/self-eval and examples/ios-refactor remain valid."
-    },
-    {
-      "criterion": "output_judge_invisible_redirect_no_warning",
-      "score": 1,
-      "confidence": 0.95,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "5 cases pass in output-judge-invisible-redirect.test.ts: agents/output-judge.md frontmatter contains deprecated_in: 1.3.0; body section preserved (terminal Rubrix evaluator); PreToolUse on direct semantic-judge or output-judge call carries no 'output-judge' string in any visible field; PostToolUse / UserPromptExpansion / Stop / SubagentStop all clean."
-    },
-    {
-      "criterion": "report_consensus_column_explain_only",
-      "score": 0.92,
-      "confidence": 0.85,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "report.ts collectConsensusByCriterion now renders stage1/stage2/stage3/skipped_due_to_budget per criterion; --explain <criterion-id> appends a dedicated stage_history table; default render path stays free of model_version, prompt_version, self_reported_confidence, rationale_hash strings. Existing report-consensus.test.ts still passes."
-    },
-    {
-      "criterion": "evaluation_policy_provenance_locked",
-      "score": 1,
-      "confidence": 0.95,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "rubrix.json evaluation_policy carries source=brief, locked_at=2026-05-09T04:10:00Z, approved_by=rubrix-dogfood-v1.3.0-pr3, derived_from_brief_hash=594c101f8c0fadd8650a65091cc4822e258596fd1e8a85af1469263624e3e8f5 (64-hex), stage1_required=true, stage3_threshold=0.6, stage3_axes=[security,correctness], max_stage3_criteria=5, max_frontier_votes=3, estimated_cost_ceiling=5.0, frontier_models populated. rubrix validate exits 0 against the v1.3+ schema branch."
-    },
-    {
-      "criterion": "dogfood_v13_root_state_passed",
-      "score": 0.95,
-      "confidence": 0.9,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "rubrix.json walked IntentDrafted → RubricLocked (clarity 1.0, threshold 0.85) → MatrixLocked (clarity 0.95, threshold 0.90) → PlanLocked (clarity 0.9, threshold 0.80) → Scoring → Passed under v1.3.0 schema branch with evaluation_policy required and brief calibrated. rubrix gate exits 0 with total ≈ 0.96 ≥ rubric.threshold 0.8."
-    },
-    {
-      "criterion": "clarity_evaluators_compat_installed_plugin",
-      "score": 0.9,
-      "confidence": 0.85,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "Worktree CLI validates rubrix.json clean against the v1.3+ schema. Installed plugin (v1.2.1) compat verified by the v1.2 fail-open branch in cli/schemas/rubrix.schema.json (^1\\.[012] versions never require evaluation_policy / evaluators[] / stage_history). Tested in cli/tests/version-fail-open.test.ts (post PR #1 merge baseline)."
-    },
-    {
-      "criterion": "hooks_json_subagent_stop_matchers",
-      "score": 0.95,
-      "confidence": 0.9,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "hooks/hooks.json SubagentStop array now contains 3 entries: matcher='' (existing wildcard), matcher='semantic-judge' (new), matcher='consensus-panel' (new). Each new entry's command is ${CLAUDE_PLUGIN_ROOT}/scripts/subagent_stop.sh which routes to handleSubagentStop. claude plugin validate . exits 0."
-    },
-    {
-      "criterion": "tests_full_suite_no_regression",
-      "score": 1,
-      "confidence": 0.95,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "cd cli && npm test reports Test Files 49 passed (49), Tests 449 passed (449), zero failed and zero skipped. Baseline 426 (post PR-1+2 merge) preserved + 23 new cases across 5 new integration files (pretooluse-direct-call-redirect, subagent-stop-stage-validation, cost-ceiling-hook-deny, output-judge-historical-read, output-judge-invisible-redirect)."
-    },
-    {
-      "criterion": "typecheck_clean",
-      "score": 1,
-      "confidence": 0.95,
-      "evaluator": "rubrix-cascade",
-      "evaluators": [
-        {
-          "evaluator_id": "mechanical-checker",
-          "stage": 1
-        }
-      ],
-      "stage_history": [
-        {
-          "stage": 1,
-          "score": 1,
-          "self_reported_confidence": 1,
-          "model": "deterministic",
-          "model_version": "mechanical-checker/1.0",
-          "prompt_version": "mechanical-checker/1.0"
-        }
-      ],
-      "notes": "cd cli && npm run typecheck (tsc --noEmit) exits 0 after the v1.3.0 PR #3 changes are applied; cli/src/hooks/handlers.ts cascade-redirect block + handleSubagentStop function + cascade.ts BudgetState extension + report.ts --explain branch all conform to strict tsconfig with no type errors."
-    }
-  ],
-  "state": "Passed",
+  "state": "PlanLocked",
   "locks": {
     "rubric": true,
     "matrix": true,
     "plan": true
   },
   "evaluation_policy": {
-    "source": "brief",
-    "locked_at": "2026-05-09T04:10:00Z",
-    "approved_by": "rubrix-dogfood-v1.3.0-pr3",
-    "derived_from_brief_hash": "594c101f8c0fadd8650a65091cc4822e258596fd1e8a85af1469263624e3e8f5",
-    "derived_from_policy_hash": "fb5e46f773a07659e6f1771095efc235f8eb933bbda634717a700e41b525fce8",
+    "source": "user",
+    "locked_at": "2026-05-13T07:50:00Z",
+    "approved_by": "rubrix-dogfood-v1.5.0-pr3",
+    "derived_from_brief_hash": "60183331766960f394b4c145f02fae57bcc78ad107cf57bb1ab2eba890476e71",
+    "derived_from_policy_hash": "3919fefed42bdfb9269d3eaf195ef0dae6d5d456085d859598a535608f37ca58",
     "stage1_required": true,
     "stage3_threshold": 0.6,
     "stage3_axes": [
@@ -750,8 +349,8 @@
     "scorer_version": "drift-scorer/1.0",
     "threshold": 0.3,
     "hard_threshold": 0.5,
-    "locked_at": "2026-05-11T00:00:00Z",
-    "approved_by": "rubrix-dogfood-v1.4.0-pr2",
+    "locked_at": "2026-05-13T07:50:00Z",
+    "approved_by": "rubrix-dogfood-v1.5.0-pr3",
     "source": "user"
   }
 }

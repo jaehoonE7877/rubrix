@@ -11079,7 +11079,7 @@ var rubrix_schema_default = {
     },
     lock_history: {
       type: "array",
-      description: "v1.4+ append-only summary ledger of lock/re-lock/force/accept-drift/unlock events for rubric/matrix/plan/evaluation_policy. v1.4 keeps a compact snapshot here; v1.5 will promote the canonical audit trail to events.jsonl (this field stays as a derived summary).",
+      description: "v1.4+ append-only summary ledger of lock/re-lock/force/accept-drift/unlock events for rubric/matrix/plan/evaluation_policy. v1.4 keeps a compact snapshot here; v1.6 will promote the canonical audit trail to events.jsonl (this field stays as a derived summary).",
       items: {
         type: "object",
         required: ["artifact", "event", "occurred_at"],
@@ -11092,6 +11092,35 @@ var rubrix_schema_default = {
           artifact_hash: { type: "string", pattern: "^[a-f0-9]{64}$" },
           drift_score: { type: "number", minimum: 0, maximum: 1 },
           reason: { type: "string", description: "Required for force-lock and accept-drift events." }
+        }
+      }
+    },
+    goal: {
+      type: "object",
+      description: "v1.5+ optional. Stores the transcript-evaluable termination condition the user pasted into Claude Code's /goal. Read-only artifact; rubrix CLI never mutates it. Pre-v1.5 CLIs accept this field as additionalProperties (fail-open).",
+      required: ["condition", "max_chars"],
+      additionalProperties: false,
+      properties: {
+        condition: {
+          type: "string",
+          minLength: 1,
+          maxLength: 4e3,
+          description: "The exact string pasted after `/goal `. Capped at 4000 chars (Claude Code /goal limit). Must contain a transcript-visible verdict marker \u2014 see `rubrix goal validate`."
+        },
+        max_chars: {
+          type: "integer",
+          const: 4e3,
+          description: "Pinned to 4000 \u2014 the Claude Code /goal hard limit. Constant so the contract self-documents the cap."
+        },
+        suggested_condition: {
+          type: "string",
+          maxLength: 4e3,
+          description: "Last `rubrix goal print` output before the user copied it into /goal. Diagnostic only; the small-fast evaluator never reads this."
+        },
+        derived_from_contract_hash: {
+          type: "string",
+          pattern: "^[a-f0-9]{64}$",
+          description: "SHA-256 over canonical(rubric, matrix, plan) at the moment `rubrix goal print` synthesized `suggested_condition`. Lets /rubrix:goal detect when the rubric drifted since the goal was set."
         }
       }
     }
@@ -14246,7 +14275,7 @@ function formatErr3(e) {
 // package.json
 var package_default = {
   name: "@rubrix/cli",
-  version: "1.4.2",
+  version: "1.5.0",
   description: "Rubrix CLI: validate, gate, report, state, lock, and hook adapter for the rubrix.json contract.",
   license: "MIT",
   author: "Jaehoon Seo",

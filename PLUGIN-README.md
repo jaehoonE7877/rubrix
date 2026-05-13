@@ -1,4 +1,6 @@
-# Rubrix — Claude Code 플러그인 사용 가이드 (v1.4.2)
+# Rubrix — Claude Code 플러그인 사용 가이드 (v1.5.0)
+
+> v1.5는 **upgrade boundary**입니다. v1.5+ 의 `rubrix.json`(선택적 `goal` artifact 포함)을 v1.4 이하 설치된 플러그인 CLI로 읽으면 schema의 top-level `additionalProperties: false` 때문에 reject 됩니다. v1.5 contract을 다루는 모든 환경에서 플러그인을 함께 업그레이드하세요.
 
 작업 전에 평가 기준을 정하고, 기준을 통과해야 완료를 선언할 수 있게 하는 evaluation-contract-first 플러그인.
 

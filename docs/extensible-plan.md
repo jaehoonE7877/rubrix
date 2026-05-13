@@ -2,7 +2,7 @@
 
 > Claude Code Harness First
 
-> **Status (v1.4.2):** v1.0 target surface and v1.1–v1.4 minor releases all delivered (`intent.brief` calibration, clarity-based lock gates, multi-evaluator cascade, drift detection and recovery loop, esbuild self-contained packaging). `claude plugin validate .` passes, 591 vitest tests pass. Next planned: **v1.5 = `/goal` as convergence runner**. The previously planned v1.5 (event-log run history) is moved to v1.6. See [`PLUGIN-README.md`](../PLUGIN-README.md) for the production-ready surface; release review history lives in GitHub Release notes per `CLAUDE.md`'s 문서 작성 규칙.
+> **Status (v1.5.0):** v1.0 target surface and v1.1–v1.5 minor releases all delivered (`intent.brief` calibration, clarity-based lock gates, multi-evaluator cascade, drift detection and recovery loop, esbuild self-contained packaging, `/rubrix:goal` skill + `rubrix goal` CLI for Claude Code `/goal` convergence). `claude plugin validate .` passes, 635 vitest tests pass. v1.5 introduces an **upgrade boundary**: v1.4 CLIs reject v1.5 contracts that carry the optional `goal` artifact (schema top-level keeps `additionalProperties:false`). The previously planned v1.5 (event-log run history) is moved to v1.6. See [`PLUGIN-README.md`](../PLUGIN-README.md) for the production-ready surface; release review history lives in GitHub Release notes per `CLAUDE.md`'s 문서 작성 규칙.
 
 ## 목적과 기본 방향
 
