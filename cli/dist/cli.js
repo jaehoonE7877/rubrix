@@ -10650,7 +10650,7 @@ import {
   unlinkSync,
   writeFileSync
 } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 // schemas/rubrix.schema.json
 var rubrix_schema_default = {
@@ -14109,6 +14109,140 @@ function computeStatus(score, threshold, hardThreshold, accepted) {
   return "ok";
 }
 
+// src/commands/goal.ts
+import { createHash as createHash4 } from "node:crypto";
+var MAX_CONDITION_CHARS = 4e3;
+var ALLOWED_STATES = /* @__PURE__ */ new Set(["PlanLocked", "Scoring", "Failed"]);
+var REQUIRED_KEYWORDS = ["rubrix gate", "overall_pass", "Passed"];
+var FORBIDDEN_PATTERNS = [
+  /\bcat\s+rubrix\.json/i,
+  /\bread\s+the\s+file/i,
+  /\bopen\s+the\s+file/i,
+  /\breadFile(?:Sync)?\b/i
+];
+function goalPrintCommand(opts) {
+  try {
+    const c = loadContract(opts.path);
+    if (!ALLOWED_STATES.has(c.state)) {
+      process.stderr.write(
+        `rubrix goal print: refusing \u2014 contract state is ${c.state}; /rubrix:goal requires PlanLocked, Scoring, or Failed (run /rubrix:plan to lock first)
+`
+      );
+      return 3;
+    }
+    const result = synthesizeCondition(c, opts.path);
+    if (opts.json) {
+      process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    } else {
+      process.stdout.write(result.condition + "\n");
+    }
+    return 0;
+  } catch (e) {
+    process.stderr.write(formatErr3(e));
+    return e instanceof ContractError ? 2 : 1;
+  }
+}
+function goalValidateCommand(opts) {
+  try {
+    loadContract(opts.path);
+    const issues = checkCondition(opts.condition);
+    if (issues.length > 0) {
+      if (opts.json) {
+        process.stdout.write(
+          JSON.stringify({ ok: false, length: opts.condition.length, issues }, null, 2) + "\n"
+        );
+      } else {
+        for (const issue of issues) process.stderr.write(`rubrix goal validate: ${issue}
+`);
+      }
+      return 3;
+    }
+    if (opts.json) {
+      process.stdout.write(
+        JSON.stringify({ ok: true, length: opts.condition.length, issues: [] }, null, 2) + "\n"
+      );
+    } else {
+      process.stdout.write(`ok: condition length=${opts.condition.length}
+`);
+    }
+    return 0;
+  } catch (e) {
+    process.stderr.write(formatErr3(e));
+    return e instanceof ContractError ? 2 : 1;
+  }
+}
+function synthesizeCondition(c, path) {
+  const crit = c.rubric?.criteria ?? [];
+  const total = crit.length;
+  const hash = createHash4("sha256").update(canonicalize({ rubric: c.rubric ?? null, matrix: c.matrix ?? null, plan: c.plan ?? null })).digest("hex");
+  const sorted = [...crit].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+  const floorLine = (x) => `\`${x.id}>=${x.floor ?? 0}\``;
+  const header = `Run \`node cli/bin/rubrix.js gate ${path} --json\` and check that the JSON output has \`overall_pass: true\` and \`state: "Passed"\`.`;
+  const tail = ` If state is \`Failed\`, run \`/rubrix:plan\` with "revise the plan now" then \`/rubrix:score\`. If overall_pass is false but state is \`Scoring\`, run \`/rubrix:score\` first.`;
+  if (header.length + tail.length > MAX_CONDITION_CHARS) {
+    const markersFirst = `Verify the JSON output of \`rubrix gate <path> --json\` shows \`overall_pass: true\` and \`state: "Passed"\`. Contract path: ${path}`;
+    const condition2 = markersFirst.length > MAX_CONDITION_CHARS ? markersFirst.slice(0, MAX_CONDITION_CHARS) : markersFirst;
+    return {
+      condition: condition2,
+      length: condition2.length,
+      criteria_count: total,
+      criteria_included: 0,
+      suggested_for_state: c.state,
+      derived_from_contract_hash: hash
+    };
+  }
+  let condition = header + tail;
+  let included = 0;
+  for (let n = total; n >= 0; n--) {
+    const taken = sorted.slice(0, n);
+    const more = total - n;
+    const floors = taken.length === 0 ? "" : ` Each of these per-criterion floors must be met: ${taken.map(floorLine).join(", ")}.`;
+    const moreNote = more > 0 ? ` (+${more} more criteria \u2014 see rubric.)` : "";
+    const candidate = header + floors + moreNote + tail;
+    if (candidate.length <= MAX_CONDITION_CHARS) {
+      condition = candidate;
+      included = n;
+      break;
+    }
+  }
+  return {
+    condition,
+    length: condition.length,
+    criteria_count: total,
+    criteria_included: included,
+    suggested_for_state: c.state,
+    derived_from_contract_hash: hash
+  };
+}
+function checkCondition(condition) {
+  const issues = [];
+  if (condition.length === 0) {
+    issues.push("condition is empty");
+    return issues;
+  }
+  if (condition.length > MAX_CONDITION_CHARS) {
+    issues.push(`condition exceeds ${MAX_CONDITION_CHARS} character cap (got ${condition.length})`);
+  }
+  const hasKeyword = REQUIRED_KEYWORDS.some((kw) => condition.includes(kw));
+  if (!hasKeyword) {
+    issues.push(
+      `condition must reference at least one evaluator-friendly marker: ${REQUIRED_KEYWORDS.join(", ")}. /goal's evaluator only sees the transcript, so the condition must point at a transcript-visible verdict.`
+    );
+  }
+  for (const pat of FORBIDDEN_PATTERNS) {
+    if (pat.test(condition)) {
+      issues.push(
+        `condition references filesystem read (matched /${pat.source}/${pat.flags}); /goal evaluator cannot call tools \u2014 conditions that ask it to read files will never pass. Use the gate --json transcript output instead.`
+      );
+      break;
+    }
+  }
+  return issues;
+}
+function formatErr3(e) {
+  return (e instanceof Error ? e.message : String(e)) + "\n";
+}
+
 // package.json
 var package_default = {
   name: "@rubrix/cli",
@@ -14219,6 +14353,13 @@ program2.command("score <path>").description("v1.3+ multi-evaluator cascade (PR 
 });
 program2.command("drift <path>").description("v1.4+: deterministic drift score (read-only). Compares intent.brief / evaluation_policy canonical hashes against derived_from_*_hash stamps and stage_history models against frontier_models; surfaces factor breakdown + gate status.").option("--json", "emit JSON output").action((path, opts) => {
   process.exit(driftCommand({ path, json: opts.json }));
+});
+var goalCmd = program2.command("goal").description("v1.5+: synthesize or validate the /goal termination condition for Claude Code's built-in /goal command (PlanLocked / Scoring / Failed only)");
+goalCmd.command("print <path>").description("Synthesize a transcript-evaluable termination condition from rubrix.json (\u22644000 chars; default human-readable, --json for full metadata)").option("--json", "emit JSON output with condition + length + criteria counts + derived_from_contract_hash").action((path, opts) => {
+  process.exit(goalPrintCommand({ path, json: opts.json }));
+});
+goalCmd.command("validate <path> <condition>").description("Check that a user-supplied condition string is evaluator-friendly (\u22644000 chars, contains a transcript-visible verdict marker, no filesystem-read directives)").option("--json", "emit JSON output").action((path, condition, opts) => {
+  process.exit(goalValidateCommand({ path, condition, json: opts.json }));
 });
 program2.command("hook <event>").description("Adapter for Claude Code hook events. Reads JSON from stdin, writes JSON decision to stdout.").action(async (event) => {
   process.exit(await hookCommand({ event }));
